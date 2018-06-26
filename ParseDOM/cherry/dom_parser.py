@@ -16,8 +16,14 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import sys
 import re
 from collections import namedtuple
+
+if sys.version_info < (3,0):
+    type_str, type_bytes = unicode, str
+else:
+    type_str, type_bytes, unicode, basestring = str, bytes, str, str
 
 DomMatch = namedtuple('DOMMatch', ['attrs', 'content'])
 re_type = type(re.compile(''))
@@ -64,7 +70,8 @@ def __get_dom_elements(item, name, attrs):
         this_list = re.findall(pattern, item, re.M | re.S | re.I)
     else:
         last_list = None
-        for key, value in attrs.iteritems():
+        #for key, value in attrs.iteritems():
+        for key, value in attrs.items():   # items() for Python3 for testing
             value_is_regex = isinstance(value, re_type)
             value_is_str = isinstance(value, basestring)
             pattern = '''(<{tag}[^>]*\s{key}=(?P<delim>['"])(.*?)(?P=delim)[^>]*>)'''.format(tag=name, key=key)
