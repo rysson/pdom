@@ -102,7 +102,7 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
                     # First match
                     lst = lst2
 
-        print('L', lst)
+        #print('L', lst)
         if ret:
             # Get attribute value
             lst2 = []
@@ -127,28 +127,25 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
                 # Recover tag name (important for "*")
                 r = re.match(pats.getTag, match, re.S)
                 tag = r.group(1) if r else name
-                # find closig tag
-                tagpats = {
-                    'tagbeg': r'''<{tag}{anyAttr}\s*>''',
-                    'tagsin': r'''<{tag}{anyAttr}\s*/>''',
-                    'tagend': r'''</{tag}\s*>''',
-                    'anybeg': r'''<(?!{tag}){anyTag}{anyAttr}\s*>''',
-                    'anysin': r'''<(?!{tag}){anyTag}{anyAttr}\s*/>''',
-                    'anyend': r'''</(?!{tag}){anyTag}\s*>''',
-                }
-                pat = '|'.join('(?P<{sub}>{pat})'.format(sub=k, pat=v) for k,v in tagpats.items())
+                # find closing tag
+                ce = me
+                pat = '(?:<(?P<beg>{anyTag}){anyAttr}\s*>)|(?:</(?P<end>{anyTag})\s*>)'
                 #print('CP', pat.format(tag=tag, **pats))
-                nested = 1
+                tag_stack = [ tag ]
                 for r in re.compile(pat.format(tag=tag, **pats), re.S).finditer(item, me):
-                    print('C', r.groupdict())
+                    #print('C', r.groupdict())
                     d = AttrDict(r.groupdict())
-                    if d.tagbeg:
-                        nested += 1
-                    elif d.tagend:
-                        nested -= 1
-                        if nested < 1:
-                            break
-                    elif ...
+                    if d.beg:
+                        tag_stack.append(d.beg)
+                    elif d.end:
+                        while tag_stack:
+                            tag_stack, last = tag_stack[:-1], tag_stack[-1]
+                            if last == d.end:
+                                break
+                        if not tag_stack:
+                            ce = r.start()
+                            break;
+                lst2.append(item[me:ce])
 
                 #start = ms
                 #end = item.find(endstr, start)
