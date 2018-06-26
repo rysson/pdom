@@ -1,0 +1,7 @@
+# Python temp/bin files
+*.py[co]
+__pycache__
+
+
+# ViM temp files
+.*.sw?
