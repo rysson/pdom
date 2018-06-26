@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import, division, unicode_literals, print_function
+from future import standard_library
+from future.builtins import *
+standard_library.install_aliases()
+
 import sys
 import re
 from collections import defaultdict
@@ -72,6 +77,9 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
         r'''<{tag}{anyAttr}{attr}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), attr=pats.mattr(a, v), **pats)  \
         if a else \
         r'''<{tag}{anyAttr}\s*/?>'''.format(tag=t, **pats)
+    #pats.mbegin       = lambda n: r'''<{tag}{anyAttr}\s*(?P<end>/?)>'''.format(tag=t, **pats)
+    #pats.mend         = lambda n: r'''</{tag}\s*>'''.format(tag=pats.mtag(n))
+    pats.getTag       = r'''<([\w-]+(?=[\s/>]))'''
 
     if not name.strip():
         name = pats.anyTag   # any tag
@@ -79,13 +87,12 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
     ret_lst = []
     for item in html:
         lst = []
-
         for key, vals in (attrs or {None: None}).items():
             if not isinstance(vals, list):
                 vals = [ vals ]
             for val in vals:
                 #lst2 = re.findall(pats.melem(name, key, val), item, re.S)
-                lst2 = list(r.group() for r in re.finditer(pats.melem(name, key, val), item, re.S))
+                lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, key, val), item, re.S))
                 if lst:
                     # Delete anything missing from the next list.
                     for i in range(len(lst)-1, -1, -1):  # or range(len(lst))[::-1]
@@ -95,16 +102,17 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
                     # First match
                     lst = lst2
 
+        print('L', lst)
         if ret:
             # Get attribute value
             lst2 = []
             pat = r'''<{tag}{anyAttr}\s+{attr}{askAttrVal}{anyAttr}\s*/?>'''
-            for match in lst:
+            for match, (ms, me) in lst:
                 if isinstance(ret, list):
                     # Many attributes at once
-                    #lst3 = (re.findall(pat.format(tag=name, attr=rt, **pats), match, re.S) for rt in ret)
-                    #lst2.append(list(item for sublist in lst3 for item in sublist or [u'']))
-                    lst2.append(list(a or b or c for rt in ret for a, b, c in re.findall(pat.format(tag=name, attr=rt, **pats), match, re.S)))
+                    lst2.append(list(
+                        a or b or c for rt in ret for a, b, c in re.findall(pat.format(tag=name, attr=rt, **pats), match, re.S)
+                    ))
                 else:
                     # Single attribute
                     lst2 += re.findall(pat.format(tag=name, attr=ret, **pats), match, re.S)
@@ -112,34 +120,61 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
         else:
             # Element content (innerHTML)
             lst2 = []
-            for match in lst:
-                endstr = u"</" + name
+            for match, (ms, me) in lst:
+                if match.endswith('/>'):   # <tag/> has no content
+                    lst2.append('')
+                    continue
+                # Recover tag name (important for "*")
+                r = re.match(pats.getTag, match, re.S)
+                tag = r.group(1) if r else name
+                # find closig tag
+                tagpats = {
+                    'tagbeg': r'''<{tag}{anyAttr}\s*>''',
+                    'tagsin': r'''<{tag}{anyAttr}\s*/>''',
+                    'tagend': r'''</{tag}\s*>''',
+                    'anybeg': r'''<(?!{tag}){anyTag}{anyAttr}\s*>''',
+                    'anysin': r'''<(?!{tag}){anyTag}{anyAttr}\s*/>''',
+                    'anyend': r'''</(?!{tag}){anyTag}\s*>''',
+                }
+                pat = '|'.join('(?P<{sub}>{pat})'.format(sub=k, pat=v) for k,v in tagpats.items())
+                #print('CP', pat.format(tag=tag, **pats))
+                nested = 1
+                for r in re.compile(pat.format(tag=tag, **pats), re.S).finditer(item, me):
+                    print('C', r.groupdict())
+                    d = AttrDict(r.groupdict())
+                    if d.tagbeg:
+                        nested += 1
+                    elif d.tagend:
+                        nested -= 1
+                        if nested < 1:
+                            break
+                    elif ...
 
-                start = item.find(match)
-                end = item.find(endstr, start)
-                pos = item.find("<" + name, start + 1 )
+                #start = ms
+                #end = item.find(endstr, start)
+                #pos = item.find("<" + name, start + 1 )
 
-                while pos < end and pos != -1:
-                    tend = item.find(endstr, end + len(endstr))
-                    if tend != -1:
-                        end = tend
-                    pos = item.find("<" + name, pos + 1)
+                #while pos < end and pos != -1:
+                #    tend = item.find(endstr, end + len(endstr))
+                #    if tend != -1:
+                #        end = tend
+                #    pos = item.find("<" + name, pos + 1)
 
-                if start == -1 and end == -1:
-                    temp = u""
-                elif start > -1 and end > -1:
-                    temp = item[start + len(match):end]
-                elif end > -1:
-                    temp = item[:end]
-                elif start > -1:
-                    temp = item[start + len(match):]
+                #if start == -1 and end == -1:
+                #    temp = u""
+                #elif start > -1 and end > -1:
+                #    temp = item[start + len(match):end]
+                #elif end > -1:
+                #    temp = item[:end]
+                #elif start > -1:
+                #    temp = item[start + len(match):]
 
-                if ret:
-                    endstr = item[end:item.find(">", item.find(endstr)) + 1]
-                    temp = match + temp + endstr
+                #if ret:
+                #    endstr = item[end:item.find(">", item.find(endstr)) + 1]
+                #    temp = match + temp + endstr
 
-                item = item[item.find(temp, item.find(match)) + len(temp):]
-                lst2.append(temp)
+                #item = item[item.find(temp, item.find(match)) + len(temp):]
+                #lst2.append(temp)
             lst = lst2
         ret_lst += lst
 

@@ -122,6 +122,7 @@ def test_parseDOM(html):
 if __name__ == '__main__':
     #test_parseDOM(html)
     print(' - - - - -')
-    test_findInHtml(html)
+    #test_findInHtml(html)
+    print(parseDOM('<a>A<a>B</a></a>', 'a'))
 
 

@@ -51,10 +51,26 @@ def check(fun, *args, **kwargs):
         if t > 0.5:
             return t / n
 
+
+def test_pat_1():
+    for pat in (
+        '<x><a/></x><a>Z</a>',
+        '<x><a/><a>Z</a></x>',
+        '<a>z<x>x<a/>y</x></a>Q</a>',
+        '<a>z<x>x<a>aa</a>y</x></a>',
+        '<a>z<x>x<a>y</x></a>Q</a>',
+    ):
+        print('----- Pattern: {}'.format(pat))
+        for mod in ('mrknow', 'cherry', 'rysson'):
+            eval('print("{0}: ", {0}.parseDOM("{1}", "a"))'.format(mod, pat), globals(), locals())
+    exit()
+
 if __name__ == '__main__':
     print('zażółć', 3/2, 3//2, type(''), type(b''), bytes, basestring)
+    test_pat_1()
+
     html = prepare_html()
-    #'<a(?:\\s+[\\w-]+(?:=(?:[^\\s/>\'"]+|"[^"]*?"|\'[^\']*?\'))?)*\\s*/?>'
+
     for mod in ('mrknow', 'cherry', 'rysson'):
         t = check(mod + '.parseDOM', 'a')
         print('Tag:  Python{py}, module: {mod}, time: {t:.6f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))
