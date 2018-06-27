@@ -77,8 +77,6 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
         r'''<{tag}{anyAttr}{attr}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), attr=pats.mattr(a, v), **pats)  \
         if a else \
         r'''<{tag}{anyAttr}\s*/?>'''.format(tag=t, **pats)
-    #pats.mbegin       = lambda n: r'''<{tag}{anyAttr}\s*(?P<end>/?)>'''.format(tag=t, **pats)
-    #pats.mend         = lambda n: r'''</{tag}\s*>'''.format(tag=pats.mtag(n))
     pats.getTag       = r'''<([\w-]+(?=[\s/>]))'''
 
     if not name.strip():
@@ -102,7 +100,6 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
                     # First match
                     lst = lst2
 
-        #print('L', lst)
         if ret:
             # Get attribute value
             lst2 = []
@@ -130,10 +127,8 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
                 # find closing tag
                 ce = me
                 pat = '(?:<(?P<beg>{anyTag}){anyAttr}\s*>)|(?:</(?P<end>{anyTag})\s*>)'
-                #print('CP', pat.format(tag=tag, **pats))
                 tag_stack = [ tag ]
                 for r in re.compile(pat.format(tag=tag, **pats), re.S).finditer(item, me):
-                    #print('C', r.groupdict())
                     d = AttrDict(r.groupdict())
                     if d.beg:
                         tag_stack.append(d.beg)
@@ -146,32 +141,6 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
                             ce = r.start()
                             break;
                 lst2.append(item[me:ce])
-
-                #start = ms
-                #end = item.find(endstr, start)
-                #pos = item.find("<" + name, start + 1 )
-
-                #while pos < end and pos != -1:
-                #    tend = item.find(endstr, end + len(endstr))
-                #    if tend != -1:
-                #        end = tend
-                #    pos = item.find("<" + name, pos + 1)
-
-                #if start == -1 and end == -1:
-                #    temp = u""
-                #elif start > -1 and end > -1:
-                #    temp = item[start + len(match):end]
-                #elif end > -1:
-                #    temp = item[:end]
-                #elif start > -1:
-                #    temp = item[start + len(match):]
-
-                #if ret:
-                #    endstr = item[end:item.find(">", item.find(endstr)) + 1]
-                #    temp = match + temp + endstr
-
-                #item = item[item.find(temp, item.find(match)) + len(temp):]
-                #lst2.append(temp)
             lst = lst2
         ret_lst += lst
 

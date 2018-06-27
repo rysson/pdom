@@ -12,7 +12,7 @@ from collections import defaultdict
 from rysson import *
 #from mrknow import *
 #from cherry import *
-from unittest import TestCase
+from unittest import TestCase, main as run_tests
 from unittest import skip as skiptest, skipIf as skiptestIf
 
 html = '''
@@ -62,25 +62,106 @@ class MrParseDOM(TestCase):
 
     def test_tag(self):
         self.assertEqual(parseDOM('<a>A</a>', 'a'), ['A'])
-        self.assertEqual(parseDOM('<a>A</a><a>B</a>', 'a'), ['A', 'B'])
-        self.assertEqual(parseDOM('<a>A</a><b>B</b>', 'a'), ['A'])
-        self.assertEqual(parseDOM('<b>B</b><a>A</a>', 'a'), ['A'])
-        self.assertEqual(parseDOM('<z><a>A</a></z>', 'a'), ['A'])
+        with self.subTest('A, A'):
+            self.assertEqual(parseDOM('<a>A</a><a>B</a>', 'a'), ['A', 'B'])
+        with self.subTest('A, X'):
+            self.assertEqual(parseDOM('<a>A</a><x>X</x>', 'a'), ['A'])
+        with self.subTest('X, A'):
+            self.assertEqual(parseDOM('<x>X</x><a>A</a>', 'a'), ['A'])
+        with self.subTest('X > A'):
+            self.assertEqual(parseDOM('<x><a>A</a></x>', 'a'), ['A'])
+        with self.subTest('A > X'):
+            self.assertEqual(parseDOM('<a><x>A</x></a>', 'a'), ['<x>A</x>'])
 
     #@skiptest('Not fixed yet')
-    def test_nested(self):
+    def test_tag_nested(self):
         with self.subTest('A > A'):
             self.assertEqual(parseDOM('<a>A<a>B</a></a>', 'a'), ['A<a>B</a>', 'B'])
+        with self.subTest('A > A ...'):
+            self.assertEqual(parseDOM('<a>A<a>B</a>C</a>Q', 'a'), ['A<a>B</a>C', 'B'])
+            self.assertEqual(parseDOM('<a>A<a></a>C</a>Q', 'a'), ['A<a></a>C', ''])
+            self.assertEqual(parseDOM('<a><a>B</a>C</a>Q', 'a'), ['<a>B</a>C', 'B'])
+            self.assertEqual(parseDOM('<a>A<a>B</a></a>Q', 'a'), ['A<a>B</a>', 'B'])
+            self.assertEqual(parseDOM('<a><a>B</a></a>Q', 'a'), ['<a>B</a>', 'B'])
+            self.assertEqual(parseDOM('<a><a></a></a>Q', 'a'), ['<a></a>', ''])
         with self.subTest('A > A > A'):
             self.assertEqual(parseDOM('<a>A<a>B<a>C</a></a></a>', 'a'), ['A<a>B<a>C</a></a>', 'B<a>C</a>', 'C'])
+        with self.subTest('A, A > A'):
+            self.assertEqual(parseDOM('<a>C</a><a>A<a>B</a></a>', 'a'), ['C', 'A<a>B</a>', 'B'])
+        with self.subTest('A > A, A'):
+            self.assertEqual(parseDOM('<a>A<a>B</a></a><a>C</a>', 'a'), ['A<a>B</a>', 'B', 'C'])
+        with self.subTest('A > A, A > A'):
+            self.assertEqual(parseDOM('<a>A<a>B</a></a><a>C<a>D</a></a>', 'a'), ['A<a>B</a>', 'B', 'C<a>D</a>', 'D'])
+        with self.subTest('A > X > A ...'):
+            self.assertEqual(parseDOM('<a>A<x>B<a>C</a>D</x>E</a>Q', 'a'), ['A<x>B<a>C</a>D</x>E', 'C'])
+
+    def test_tag_single(self):
+        with self.subTest('A/'):
+            self.assertEqual(parseDOM('<a/>', 'a'), [''])
+        with self.subTest('A /'):
+            self.assertEqual(parseDOM('<a />', 'a'), [''])
+        with self.subTest('X > A/, A'):
+            self.assertEqual(parseDOM('<x><a/></x><a>A</a>', 'a'), ['', 'A'])
+        with self.subTest('X > A /, A'):
+            self.assertEqual(parseDOM('<x><a /></x><a>A</a>', 'a'), ['', 'A'])
+        with self.subTest('X > A/, A ...'):
+            self.assertEqual(parseDOM('<x><a/></x><a>A</a>Q', 'a'), ['', 'A'])
+        with self.subTest('X > A /, A ...'):
+            self.assertEqual(parseDOM('<x><a /></x><a>A</a>Q', 'a'), ['', 'A'])
+        with self.subTest('X > ( A/, A )'):
+            self.assertEqual(parseDOM('<x><a/><a>A</a></x>', 'a'), ['', 'A'])
+        with self.subTest('X > ( A /, A )'):
+            self.assertEqual(parseDOM('<x><a /></x><a>A</a></x>', 'a'), ['', 'A'])
+        with self.subTest('X > ( A/, A ) ...'):
+            self.assertEqual(parseDOM('<x><a/><a>A</a></x>Q', 'a'), ['', 'A'])
+        with self.subTest('X > ( A /, A ) ...'):
+            self.assertEqual(parseDOM('<x><a /><a>A</a></x>Q', 'a'), ['', 'A'])
+        with self.subTest('X > ( A /, A ... )'):
+            self.assertEqual(parseDOM('<x><a /><a>A</a>Q</x>', 'a'), ['', 'A'])
+        with self.subTest('X > ( A/, A ... )'):
+            self.assertEqual(parseDOM('<x><a/><a>A</a>Q</x>', 'a'), ['', 'A'])
+
+    def test_tag_nested_single(self):
         with self.subTest('A > A/'):
+            self.assertEqual(parseDOM('<a>A<a/>B</a>', 'a'), ['A<a/>B', ''])
             self.assertEqual(parseDOM('<a>A<a/></a>', 'a'), ['A<a/>', ''])
+            self.assertEqual(parseDOM('<a><a/>B</a>', 'a'), ['<a/>B', ''])
+            self.assertEqual(parseDOM('<a><a/></a>', 'a'), ['<a/>', ''])
         with self.subTest('A > A /'):
+            self.assertEqual(parseDOM('<a>A<a />B</a>', 'a'), ['A<a />B', ''])
             self.assertEqual(parseDOM('<a>A<a /></a>', 'a'), ['A<a />', ''])
+            self.assertEqual(parseDOM('<a><a />B</a>', 'a'), ['<a />B', ''])
+            self.assertEqual(parseDOM('<a><a /></a>', 'a'), ['<a />', ''])
         with self.subTest('A > A/ ...'):
-            self.assertEqual(parseDOM('<a>A<a/></a>X</a>', 'a'), ['A<a/>', ''])
+            self.assertEqual(parseDOM('<a>A<a/>B</a>Q', 'a'), ['A<a/>B', ''])
         with self.subTest('A > A / ...'):
-            self.assertEqual(parseDOM('<a>A<a /></a>X</a>', 'a'), ['A<a />', ''])
+            self.assertEqual(parseDOM('<a>A<a />B</a>Q', 'a'), ['A<a />B', ''])
+        with self.subTest('A > A/ ... /a'):
+            self.assertEqual(parseDOM('<a>A<a/>B</a>Q</a>', 'a'), ['A<a/>B', ''])
+        with self.subTest('A > A / ... /a'):
+            self.assertEqual(parseDOM('<a>A<a />B</a>Q</a>', 'a'), ['A<a />B', ''])
+        with self.subTest('A > X > A/ ...'):
+            self.assertEqual(parseDOM('<a>A<x>B<a/>C</x>D</a>Q', 'a'), ['A<x>B<a/>C</x>D', ''])
+        with self.subTest('A > X > A / ...'):
+            self.assertEqual(parseDOM('<a>A<x>B<a />C</x>D</a>Q', 'a'), ['A<x>B<a />C</x>D', ''])
+        with self.subTest('A > X > A/ ... /a'):
+            self.assertEqual(parseDOM('<a>A<x>B<a/>C</x>D</a>Q</a>', 'a'), ['A<x>B<a/>C</x>D', ''])
+        with self.subTest('A > X > A / ... /a'):
+            self.assertEqual(parseDOM('<a>A<x>B<a />C</x>D</a>Q</a>', 'a'), ['A<x>B<a />C</x>D', ''])
+
+    def test_tag_broken_nested(self):
+        with self.subTest('A > X > ~A~ ...'):
+            self.assertEqual(parseDOM('<a>A<x>B<a>C</x>D</a>Q', 'a'), ['A<x>B<a>C</x>D', 'C'])
+        with self.subTest('A > X > ~A~ ... /a'):
+            self.assertEqual(parseDOM('<a>A<x>B<a>C</x>D</a>Q</a>', 'a'), ['A<x>B<a>C</x>D', 'C'])
+        with self.subTest('A > X > ( ~A~, ~A~ ) ... /a'):
+            self.assertEqual(parseDOM('<a>A<x>B<a>C<a>D</x>E</a>Q</a>', 'a'), ['A<x>B<a>C<a>D</x>E', 'C<a>D', 'D'])
+        with self.subTest('A > ( X > ~A~, X > ~A~ ) ... /a'):
+            self.assertEqual(parseDOM('<a>A<x>B<a>C</x>D<x>E<a>F</x>G</a>Q</a>', 'a'), ['A<x>B<a>C</x>D<x>E<a>F</x>G', 'C', 'F'])
+
+    def test_tag_broken_nested_single(self):
+        '<a>z<x>x<a>aa</a>y</x></a>',
+        '<a>z<x>x<a>y</x></a>Q</a>',
 
     def test_no_attrs(self):
         self.assertEqual(parseDOM('<a x="1">A</a>', 'a'), ['A'])
@@ -128,9 +209,14 @@ def test_parseDOM(html):
     print(parseDOM(html, 'p', {'a': aWordStarts('2')}))
 
 if __name__ == '__main__':
-    #test_parseDOM(html)
-    print(' - - - - -')
-    #test_findInHtml(html)
-    print(parseDOM('<a>A<a>B</a></a>', 'a'))
+    if len(sys.argv) > 1:
+        #test_parseDOM(html)
+        print(' - - - - -')
+        #test_findInHtml(html)
+        print(parseDOM('<a>A<a>B</a></a>', 'a'))
+    else:
+        run_tests(exit=False)
+        # TODO: tests for all implementations
+        #run_tests(exit=False)
 
 

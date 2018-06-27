@@ -41,9 +41,8 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
                 lst = lst2
                 lst2 = []
             else:
-                test = range(len(lst))
-                test.reverse()
-                for i in test:  # Delete anything missing from the next list.
+                # Delete anything missing from the next list.
+                for i in range(len(lst) - 1, -1, -1):
                     if not lst[i] in lst2:
                         del(lst[i])
 
