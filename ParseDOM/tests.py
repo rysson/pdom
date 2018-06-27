@@ -12,7 +12,7 @@ from collections import defaultdict
 from rysson import *
 #from mrknow import *
 #from cherry import *
-from unittest import TestCase, main as run_tests
+from unittest import TestCase as UTestCase, main as run_tests
 from unittest import skip as skiptest, skipIf as skiptestIf
 
 html = '''
@@ -57,6 +57,9 @@ html = '''
  </b>
 </div>
 '''
+
+class TestCase(UTestCase):
+    pass
 
 class MrParseDOM(TestCase):
 

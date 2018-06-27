@@ -5,7 +5,7 @@ from future import standard_library
 from future.builtins import *
 standard_library.install_aliases()
 
-from unittest import TestCase #, main as run_tests
+from unittest import TestCase
 from unittest import skip as skiptest, skipIf as skiptestIf
 
 from ..parseDOM import parseDOM
@@ -163,9 +163,43 @@ class TestParseDOM(TestCase):
             self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret='x'), ['1'])
 
 
+    def test_x(self):
+        assert 0
+        self.assertEqual(1, 2)
+
 
 class TestParseDOM_Extra(TestCase):
 
-    def test_(self):
+    def test_attr_or(self):
+        with self.subTest('A[x=1|2]'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': '1|2'}), ['A'])
+            self.assertEqual(parseDOM('<a x="2">A</a>', 'a', {'x': '1|2'}), ['A'])
+            self.assertEqual(parseDOM('<a x="3">A</a>', 'a', {'x': '1|2'}), [''])
+        with self.subTest('A[x=1|2][y]'):
+            self.assertEqual(parseDOM('<a x="1" y="5">A</a>', 'a', {'x': '1|2', 'y': '5'}), ['A'])
+            self.assertEqual(parseDOM('<a x="2" y="5">A</a>', 'a', {'x': '1|2', 'y': '5'}), ['A'])
+            self.assertEqual(parseDOM('<a x="3" y="5">A</a>', 'a', {'x': '1|2', 'y': '5'}), [''])
+            self.assertEqual(parseDOM('<a x="1" y="6">A</a>', 'a', {'x': '1|2', 'y': '5'}), [''])
+            self.assertEqual(parseDOM('<a x="2" y="6">A</a>', 'a', {'x': '1|2', 'y': '5'}), [''])
+            self.assertEqual(parseDOM('<a x="3" y="6">A</a>', 'a', {'x': '1|2', 'y': '5'}), [''])
+        #with self.subTest('A[x[]][y[]]'):
+
+    @skiptest('Not fixed yet')
+    def test_attr_list_and(self):
+        with self.subTest('A[x[]]'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': ['1', '2']}), ['A'])
+            self.assertEqual(parseDOM('<a x="2">A</a>', 'a', {'x': ['1', '2']}), ['A'])
+            self.assertEqual(parseDOM('<a x="3">A</a>', 'a', {'x': ['1', '2']}), [''])
+        with self.subTest('A[x[]][y]'):
+            self.assertEqual(parseDOM('<a x="1" y="5">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), ['A'])
+            self.assertEqual(parseDOM('<a x="2" y="5">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), ['A'])
+            self.assertEqual(parseDOM('<a x="3" y="5">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), [''])
+            self.assertEqual(parseDOM('<a x="1" y="6">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), [''])
+            self.assertEqual(parseDOM('<a x="2" y="6">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), [''])
+            self.assertEqual(parseDOM('<a x="3" y="6">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), [''])
+        #with self.subTest('A[x[]][y[]]'):
+
+    def test_x(self):
+        #self.assertEqual(1, 2)
         pass
 
