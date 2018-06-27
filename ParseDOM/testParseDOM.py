@@ -68,14 +68,17 @@ def test_pat_1(github=False):
         '<a>A<x>B<a>C</x>D</a>Q</a>R',
         '<a>A</a><a x="1">B</a>Q',
         '<a z=">">A</a>Q',
-        #('<a x="1">A</a><a x="2">B</a>Q', {'x': '1'}),
-        #('<a x="1">A</a><a y="2">B</a>Q', {'x': '1'}),
-        #('<a x="1">A</a><a x="1" y="2">B</a>Q', {'x': '1'}),
-        #('<a x="1">A</a><a x="1" y="2">B</a>Q', {'x': '1', 'y': '2'}),
+        #('<a x="1">A</a><a x="2">B</a>Q', {'x': '1'}, False),
+        #('<a x="1">A</a><a y="2">B</a>Q', {'x': '1'}, False),
+        #('<a x="1">A</a><a x="1" y="2">B</a>Q', {'x': '1'}, False),
+        #('<a x="1">A</a><a x="1" y="2">B</a>Q', {'x': '1', 'y': '2'}, False),
+        ('<a x="1">A</a>Q', {'x': '1'}, 'x'),
+        ('<a x="1">A</a>Q', {'x': '1'}, 'y'),
+        ('<a x="1" x="2">A</a>Q', {'x': '1'}, 'x'),
     ):
-        attr = {}
+        attr, ret = {}, False
         if not isinstance(pat, basestring):
-            pat, attr = pat
+            pat, attr, ret = pat
         if github:
             if attr:
                 line = [ "`{}`, `{}`".format(pat, attr) ]
@@ -86,13 +89,13 @@ def test_pat_1(github=False):
         match = rysson.parseDOM(pat, 'a', attr)
         for mod in ('mrknow', 'cherry', 'rysson'):
             if github:
-                lst = eval('{0}.parseDOM("""{1}""", "a", attr)'.format(mod, pat), globals(), locals())
+                lst = eval('{0}.parseDOM("""{1}""", "a", attr, ret)'.format(mod, pat), globals(), locals())
                 res = '[' + ', '.join("'{}'".format('`{}`'.format(v) if v else '') for v in lst) + ']'
                 if match == lst:
                     res = '**\033[32;1m{}\033[0m**'.format(res)
                 line.append(res)
             else:
-                eval('print("{0}: ", {0}.parseDOM("""{1}""", "a", attr))'.format(mod, pat), globals(), locals())
+                eval('print("{0}: ", {0}.parseDOM("""{1}""", "a", attr, ret))'.format(mod, pat), globals(), locals())
         if github:
             print(' | '.join(line))
     exit()
@@ -100,7 +103,7 @@ def test_pat_1(github=False):
 if __name__ == '__main__':
     github = sys.argv[1:2] == ['--github']
     print('zażółć', 3/2, 3//2, type(''), type(b''), bytes, basestring)
-    #test_pat_1(github=github)
+    test_pat_1(github=github)
 
     html = prepare_html()
 

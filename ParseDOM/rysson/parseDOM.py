@@ -82,28 +82,32 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
     if not name.strip():
         name = pats.anyTag   # any tag
 
+
     ret_lst = []
     for item in html:
-        lst = []
+        lst = None
         for key, vals in (attrs or {None: None}).items():
             if not isinstance(vals, list):
                 vals = [ vals ]
             for val in vals:
-                #lst2 = re.findall(pats.melem(name, key, val), item, re.S)
                 lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, key, val), item, re.S))
-                if lst:
-                    # Delete anything missing from the next list.
-                    for i in range(len(lst)-1, -1, -1):  # or range(len(lst))[::-1]
+                if lst is None:   # First match
+                    lst = lst2
+                else:             # Delete anything missing from the next list.
+                    for i in range(len(lst)-1, -1, -1):
                         if not lst[i] in lst2:
                             del lst[i]
-                else:
-                    # First match
-                    lst = lst2
+                if not lst:
+                    break
+            if not lst:
+                break
+        if not lst:
+            continue
 
         if ret:
             # Get attribute value
             lst2 = []
-            pat = r'''<{tag}{anyAttr}\s+{attr}{askAttrVal}{anyAttr}\s*/?>'''
+            pat = r'''<{tag}{anyAttr}?\s+{attr}{askAttrVal}{anyAttr}\s*/?>'''
             for match, (ms, me) in lst:
                 if isinstance(ret, list):
                     # Many attributes at once
@@ -112,7 +116,9 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
                     ))
                 else:
                     # Single attribute
-                    lst2 += re.findall(pat.format(tag=name, attr=ret, **pats), match, re.S)
+                    r = re.search(pat.format(tag=name, attr=ret, **pats), match, re.S)
+                    if r:
+                        lst2 += r.group(1) or r.group(2) or r.group(3)
             lst = lst2
         else:
             # Element content (innerHTML)
@@ -286,6 +292,8 @@ if __name__ == '__main__':
      </b>
     </div>
     '''
+
+    print(parseDOM('<a y="2">A</a>', 'a', {'x': '1', 'y': '2'})); exit()
 
     #test_parseDOM(html)
     print(' - - - - -')
