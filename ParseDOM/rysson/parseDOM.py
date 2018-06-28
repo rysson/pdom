@@ -8,6 +8,7 @@ standard_library.install_aliases()
 import sys
 import re
 from collections import defaultdict
+from collections import namedtuple
 
 
 if sys.version_info < (3,0):
@@ -15,6 +16,8 @@ if sys.version_info < (3,0):
 else:
     type_str, type_bytes, unicode, basestring = str, bytes, str, str
 
+
+DomMatch = namedtuple('DomMatch', ['attrs', 'content'])
 
 class AttrDict(dict):
     """dict() + attribute access"""
@@ -53,8 +56,6 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
     # Copyright (C) 2010-2011 Tobias Ussing And Henrik Mosgaard Jensen
     # Refactoring by Robert Kalinowski <robert.kalinowski@sharkbits.com>
 
-    class BreakAtrrloop(Exception): pass
-
     #print('parseDOM: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
     if isinstance(html, type_bytes):
         try:
@@ -69,8 +70,9 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
     pats = AttrDict()
     pats.anyTag       = r'''[\w-]+'''
     pats.anyAttrVal   = r'''(?:=(?:[^\s/>'"]+|"[^"]*?"|'[^']*?'))?'''
-    pats.askAttrVal   = r'''(?:=(?:([^\s/>'"]+)|"([^"]*?)"|'([^']*?)'))?'''
+    pats.askAttrVal   = r'''(?:=(?:(?P<val1>[^\s/>'"]+)|"(?P<val2>[^"]*?)"|'(?P<val3>[^']*?)'))?'''
     pats.anyAttrName  = r'''[\w-]+'''
+    pats.askAttrName  = r'''(?P<attr>[\w-]+)'''
     pats.anyAttr      = r'''(?:\s+{anyAttrName}{anyAttrVal})*'''.format(**pats)
     pats.mtag         = lambda n: r'''{n}(?=[\s/>])'''.format(n='(?:{})'.format(n))
     pats.mattr        = lambda n, v: \
@@ -88,9 +90,36 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
     if not name.strip():
         name = pats.anyTag   # any tag
 
+    class BreakAtrrloop(Exception): pass
+
+    def find_closing(name, match, item, ms, me):
+        if match.endswith('/>'):   # <tag/> has no content
+            return me, me
+        # Recover tag name (important for "*")
+        r = re.match(pats.getTag, match, re.S)
+        tag = r.group(1) if r else name
+        # find closing tag
+        ce = me
+        pat = '(?:<(?P<beg>{anyTag}){anyAttr}\s*>)|(?:</(?P<end>{anyTag})\s*>)'
+        tag_stack = [ tag ]
+        for r in re.compile(pat.format(tag=tag, **pats), re.S).finditer(item, me):
+            d = AttrDict(r.groupdict())
+            if d.beg:
+                tag_stack.append(d.beg)
+            elif d.end:
+                while tag_stack:
+                    tag_stack, last = tag_stack[:-1], tag_stack[-1]
+                    if last == d.end:
+                        break
+                if not tag_stack:
+                    ce = r.start()
+                    break;
+        return me, ce
 
     ret_lst = []
     for item in html:
+        if isinstance(item, DomMatch):
+            item = item.content
         lst = None
         try:
             for key, vals in (attrs or {None: None}).items():
@@ -121,7 +150,16 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
         if not lst:
             continue
 
-        if ret:
+        if ret is True:
+            # Get full node (content and all attributes)
+            lst2 = []
+            for match, (ms, me) in lst:
+                attrs = dict((attr.lower(), a or b or c) \
+                    for attr, a, b, c in re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats), match, re.S))
+                cs, ce = find_closing(name, match, item, ms, me)
+                lst2.append(DomMatch(attrs, item[cs:ce]))
+            lst = lst2
+        elif ret:
             # Get attribute value
             lst2 = []
             pat = r'''<(?:{tag}){anyAttr}?\s+(?:{attr}){askAttrVal}{anyAttr}\s*/?>'''
@@ -141,29 +179,8 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
             # Element content (innerHTML)
             lst2 = []
             for match, (ms, me) in lst:
-                if match.endswith('/>'):   # <tag/> has no content
-                    lst2.append('')
-                    continue
-                # Recover tag name (important for "*")
-                r = re.match(pats.getTag, match, re.S)
-                tag = r.group(1) if r else name
-                # find closing tag
-                ce = me
-                pat = '(?:<(?P<beg>{anyTag}){anyAttr}\s*>)|(?:</(?P<end>{anyTag})\s*>)'
-                tag_stack = [ tag ]
-                for r in re.compile(pat.format(tag=tag, **pats), re.S).finditer(item, me):
-                    d = AttrDict(r.groupdict())
-                    if d.beg:
-                        tag_stack.append(d.beg)
-                    elif d.end:
-                        while tag_stack:
-                            tag_stack, last = tag_stack[:-1], tag_stack[-1]
-                            if last == d.end:
-                                break
-                        if not tag_stack:
-                            ce = r.start()
-                            break;
-                lst2.append(item[me:ce])
+                cs, ce = find_closing(name, match, item, ms, me)
+                lst2.append(item[cs:ce])
             lst = lst2
         ret_lst += lst
 
@@ -310,8 +327,8 @@ if __name__ == '__main__':
     </div>
     '''
 
-    #print(parseDOM('<a x="1" y="1">A</a>', 'a', {'x': False}))
-    #exit()
+    print(parseDOM('', 'b', ret=True))
+    exit()
 
     #test_parseDOM(html)
     print(' - - - - -')

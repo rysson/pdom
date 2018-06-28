@@ -10,6 +10,7 @@ from unittest import skip as skiptest, skipIf as skiptestIf
 
 from ..parseDOM import parseDOM
 from ..parseDOM import aWord, aWordStarts, aStarts, aEnds, aContains
+from ..parseDOM import DomMatch   # for test only
 
 
 
@@ -320,4 +321,84 @@ class TestParseDOM_AttrFunc(TestCase):
             self.assertEqual(parseDOM('<a x="1 0 2">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
             self.assertEqual(parseDOM('<a x="2 0 1">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
 
+
+
+class TestParseDOM_DomMatch(TestCase):
+    # DomMach result, compatibile with Cherry dom_parse()
+
+    def test_dommatch_base(self):
+        with self.subTest('DomMatch ret'):
+            self.assertEqual(parseDOM('<b>B</b>', 'a', ret=True), [])
+            self.assertEqual(len(parseDOM('<a>A</a>', 'a', ret=True)), 1)
+        with self.subTest('DomMatch type'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=True), [DomMatch({}, 'A')])
+            self.assertEqual(type(parseDOM('<a>A</a>', 'a', ret=True)[0]), DomMatch)
+
+    def test_dommatch_content(self):
+        with self.subTest('DomMatch content by name'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=True)[0].content, 'A')
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=True)[0].content, 'A')
+        with self.subTest('DomMatch content by index'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=True)[0][1], 'A')
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=True)[0][1], 'A')
+
+    def test_dommatch_attr(self):
+        with self.subTest('DomMatch attr by name'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=True)[0].attrs, {})
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=True)[0].attrs, {'x': '1'})
+        with self.subTest('DomMatch attr by index'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=True)[0][0], {})
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=True)[0][0], {'x': '1'})
+        with self.subTest('DomMatch many attrs'):
+            self.assertEqual(parseDOM('<a x="1" y="2">A</a>', 'a', ret=True)[0].attrs, {'x': '1', 'y': '2'})
+            self.assertEqual(parseDOM('<a y="2" x="1">A</a>', 'a', ret=True)[0].attrs, {'x': '1', 'y': '2'})
+
+    def test_dommatch_source_list(self):
+        sA, sAA = '<a>A</a>', '<a>A</a><a>A</a>'
+        sAx, sAAx, sAxAx = '<a x="1">A</a>', '<a>A</a><a x="1">A</a>', '<a x="1">A</a><a x="1">A</a>'
+        mA, mAA = DomMatch({}, sA), DomMatch({}, sAA)
+        mAx, mAAx, mAxAx = DomMatch({}, sAx), DomMatch({}, sAAx), DomMatch({}, sAxAx)
+        A, Ax = DomMatch({}, 'A'), DomMatch({'x': '1'}, 'A')
+        with self.subTest('Source list -> DomMatch'):
+            self.assertEqual(parseDOM([sA], 'a', ret=True), [A])
+            self.assertEqual(parseDOM([sAA], 'a', ret=True), [A, A])
+            self.assertEqual(parseDOM([sA, sA], 'a', ret=True), [A, A])
+        with self.subTest('Source list (attr) -> DomMatch'):
+            self.assertEqual(parseDOM([sAx], 'a', ret=True), [Ax])
+            self.assertEqual(parseDOM([sAxAx], 'a', ret=True), [Ax, Ax])
+            self.assertEqual(parseDOM([sAAx], 'a', ret=True), [A, Ax])
+            self.assertEqual(parseDOM([sAx, sAx], 'a', ret=True), [Ax, Ax])
+
+    def test_dommatch_source_dommatch_list(self):
+        sA, sAA = '<a>A</a>', '<a>A</a><a>A</a>'
+        sAx, sAAx, sAxAx = '<a x="1">A</a>', '<a>A</a><a x="1">A</a>', '<a x="1">A</a><a x="1">A</a>'
+        mA, mAA = DomMatch({}, sA), DomMatch({}, sAA)
+        mAx, mAAx, mAxAx = DomMatch({}, sAx), DomMatch({}, sAAx), DomMatch({}, sAxAx)
+        A, Ax = DomMatch({}, 'A'), DomMatch({'x': '1'}, 'A')
+        with self.subTest('Source DomMatch list -> DomMatch'):
+            self.assertEqual(parseDOM([sA], 'a', ret=True), [A])
+            self.assertEqual(parseDOM([sAA], 'a', ret=True), [A, A])
+            self.assertEqual(parseDOM([sA, sA], 'a', ret=True), [A, A])
+        with self.subTest('Source DomMatch list (attr) -> DomMatch'):
+            self.assertEqual(parseDOM([mAx], 'a', ret=True), [Ax])
+            self.assertEqual(parseDOM([mAxAx], 'a', ret=True), [Ax, Ax])
+            self.assertEqual(parseDOM([mAAx], 'a', ret=True), [A, Ax])
+            self.assertEqual(parseDOM([mAx, mAx], 'a', ret=True), [Ax, Ax])
+
+    def test_dommatch_source_mixed_list(self):
+        sA, sAA = '<a>A</a>', '<a>A</a><a>A</a>'
+        sAx, sAAx, sAxAx = '<a x="1">A</a>', '<a>A</a><a x="1">A</a>', '<a x="1">A</a><a x="1">A</a>'
+        mA, mAA = DomMatch({}, sA), DomMatch({}, sAA)
+        mAx, mAAx, mAxAx = DomMatch({}, sAx), DomMatch({}, sAAx), DomMatch({}, sAxAx)
+        A, Ax = DomMatch({}, 'A'), DomMatch({'x': '1'}, 'A')
+        with self.subTest('Source mixed list -> DomMatch'):
+            self.assertEqual(parseDOM([sA, mA], 'a', ret=True), [A, A])
+            self.assertEqual(parseDOM([mA, sA], 'a', ret=True), [A, A])
+        with self.subTest('Source mixed list (attr) -> DomMatch'):
+            self.assertEqual(parseDOM([mAx], 'a', ret=True), [Ax])
+            self.assertEqual(parseDOM([mAxAx], 'a', ret=True), [Ax, Ax])
+            self.assertEqual(parseDOM([mAAx], 'a', ret=True), [A, Ax])
+            self.assertEqual(parseDOM([mAx, mAx], 'a', ret=True), [Ax, Ax])
+
+            #self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': aWord('1')}), [])
 
