@@ -9,6 +9,7 @@ import sys
 import re
 from collections import defaultdict
 from collections import namedtuple
+from inspect import isclass
 
 
 if sys.version_info < (3,0):
@@ -87,7 +88,7 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
         r'''<{tag}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), **pats)
     pats.getTag       = r'''<([\w-]+(?=[\s/>]))'''
 
-    if not name.strip():
+    if not (name or '').strip():
         name = pats.anyTag   # any tag
 
     class BreakAtrrloop(Exception): pass
@@ -151,13 +152,15 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
             continue
 
         if ret is True:
+            ret = DomMatch
+        if isclass(ret) and issubclass(ret, DomMatch):
             # Get full node (content and all attributes)
             lst2 = []
             for match, (ms, me) in lst:
                 attrs = dict((attr.lower(), a or b or c) \
                     for attr, a, b, c in re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats), match, re.S))
                 cs, ce = find_closing(name, match, item, ms, me)
-                lst2.append(DomMatch(attrs, item[cs:ce]))
+                lst2.append(ret(attrs, item[cs:ce]))
             lst = lst2
         elif ret:
             # Get attribute value
@@ -185,6 +188,11 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
         ret_lst += lst
 
     return ret_lst
+
+
+
+def parse_dom(html, name='', attrs=None, req=False, exclude_comments=False):
+    return parseDOM(html, name, attrs, ret=DomMatch)
 
 
 

@@ -2,6 +2,7 @@
 
 import re
 from . import dom_parser
+from .dom_parser import parse_dom
 
 def parseDOM(html, name='', attrs=None, ret=False):
     if attrs: attrs = dict((key, re.compile(value + ('$' if value else ''))) for key, value in attrs.items())

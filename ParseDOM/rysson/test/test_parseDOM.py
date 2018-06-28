@@ -283,6 +283,7 @@ class TestParseDOM_AttrFunc(TestCase):
 
     def test_attr_func_aWord_1(self):
         with self.subTest('One aWord() – empty'):
+            self.assertEqual(parseDOM('<a x=>A</a>', 'a', {'x': aWord('1')}), [])
             self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': aWord('1')}), [])
         with self.subTest('One aWord() - single value'):
             self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': aWord('1')}), ['A'])
@@ -321,37 +322,153 @@ class TestParseDOM_AttrFunc(TestCase):
             self.assertEqual(parseDOM('<a x="1 0 2">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
             self.assertEqual(parseDOM('<a x="2 0 1">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
 
+    def test_attr_func_aWordStarts_1(self):
+        with self.subTest('One aWordStart() – empty'):
+            self.assertEqual(parseDOM('<a x=>A</a>', 'a', {'x': aWordStarts('1')}), [])
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': aWordStarts('1')}), [])
+        with self.subTest('One aWordStart() – single value'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x=" 1">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="1 ">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="11">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="12">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="21">A</a>', 'a', {'x': aWordStarts('1')}), [])
+        with self.subTest('One aWordStart() – many values'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="1 2">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="2 1">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="2 1 3">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="2 11 3">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="2 12 3">A</a>', 'a', {'x': aWordStarts('1')}), ['A'])
+        with self.subTest('One aWordStart() - miss'):
+            self.assertEqual(parseDOM('<a x="21">A</a>', 'a', {'x': aWordStarts('1')}), [])
+            self.assertEqual(parseDOM('<a x="2 21 3">A</a>', 'a', {'x': aWordStarts('1')}), [])
+            self.assertEqual(parseDOM('<a x="2 3">A</a>', 'a', {'x': aWordStarts('1')}), [])
+
+    def test_attr_func_aWordStarts_2(self):
+        with self.subTest('Two aWordStarts() - miss, no one exists'):
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="3">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+            self.assertEqual(parseDOM('<a y="1 2">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+            self.assertEqual(parseDOM('<a y="11 22">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="12">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="21">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+        with self.subTest('Two aWordStarts() - miss, one exists'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="2">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="1 12">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="21 2">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="3 12">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="21 3">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), [])
+        with self.subTest('Two aWordStarts() - two exist'):
+            self.assertEqual(parseDOM('<a x="1 2">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="2 1">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="1 2 3">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="0 1 2">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="0 1 2 3">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="0 2 1 3">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="1 0 2">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="2 0 1">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="1 22">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="11 2">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="12 21">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="12 33 21">A</a>', 'a', {'x': [ aWordStarts('1'), aWordStarts('2') ] }), ['A'])
+
+    def test_attr_func_aStarts(self):
+        with self.subTest('One aStarts() – empty'):
+            self.assertEqual(parseDOM('<a x=>A</a>', 'a', {'x': aStarts('1')}), [])
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': aStarts('1')}), [])
+            self.assertEqual(parseDOM('<a x=" ">A</a>', 'a', {'x': aStarts('1')}), [])
+        with self.subTest('One aStarts() – miss'):
+            self.assertEqual(parseDOM('<a x=" 1">A</a>', 'a', {'x': aStarts('1')}), [])
+            self.assertEqual(parseDOM('<a x=" 1 1">A</a>', 'a', {'x': aStarts('1')}), [])
+            self.assertEqual(parseDOM('<a x="3 1">A</a>', 'a', {'x': aStarts('1')}), [])
+            self.assertEqual(parseDOM('<a x="31">A</a>', 'a', {'x': aStarts('1')}), [])
+        with self.subTest('One aStarts() – match'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': aStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="1 1">A</a>', 'a', {'x': aStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="11">A</a>', 'a', {'x': aStarts('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="12">A</a>', 'a', {'x': aStarts('1')}), ['A'])
+        with self.subTest('One aStarts() – miss, two cond on "x"'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': [aStarts('1'), aStarts('2')]}), [])
+            self.assertEqual(parseDOM('<a x="2">A</a>', 'a', {'x': [aStarts('1'), aStarts('2')]}), [])
+            self.assertEqual(parseDOM('<a x="12">A</a>', 'a', {'x': [aStarts('1'), aStarts('2')]}), [])
+            self.assertEqual(parseDOM('<a x="21">A</a>', 'a', {'x': [aStarts('1'), aStarts('2')]}), [])
+        with self.subTest('One aStarts() – match (x, y)'):
+            self.assertEqual(parseDOM('<a x="1" y="2">A</a>', 'a', {'x': aStarts('1'), 'y': aStarts('2')}), ['A'])
+            self.assertEqual(parseDOM('<a x="11" y="2">A</a>', 'a', {'x': aStarts('1'), 'y': aStarts('2')}), ['A'])
+            self.assertEqual(parseDOM('<a x="1" y="22">A</a>', 'a', {'x': aStarts('1'), 'y': aStarts('2')}), ['A'])
+            self.assertEqual(parseDOM('<a x="1 2" y="2 1">A</a>', 'a', {'x': aStarts('1'), 'y': aStarts('2')}), ['A'])
+        with self.subTest('One aStarts() – miss (x, y)'):
+            self.assertEqual(parseDOM('<a x="1" y="3">A</a>', 'a', {'x': aStarts('1'), 'y': aStarts('2')}), [])
+            self.assertEqual(parseDOM('<a x="3" y="2">A</a>', 'a', {'x': aStarts('1'), 'y': aStarts('2')}), [])
+            self.assertEqual(parseDOM('<a x="21" y="2">A</a>', 'a', {'x': aStarts('1'), 'y': aStarts('2')}), [])
+            self.assertEqual(parseDOM('<a x="1" y="32">A</a>', 'a', {'x': aStarts('1'), 'y': aStarts('2')}), [])
+            self.assertEqual(parseDOM('<a x="2 1" y="1 2">A</a>', 'a', {'x': aStarts('1'), 'y': aStarts('2')}), [])
+
+    def test_attr_func_aEnds(self):
+        with self.subTest('One aEnds() – empty'):
+            self.assertEqual(parseDOM('<a x=>A</a>', 'a', {'x': aEnds('1')}), [])
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': aEnds('1')}), [])
+            self.assertEqual(parseDOM('<a x=" ">A</a>', 'a', {'x': aEnds('1')}), [])
+        with self.subTest('One aEnds() – miss'):
+            self.assertEqual(parseDOM('<a x="1 ">A</a>', 'a', {'x': aEnds('1')}), [])
+            self.assertEqual(parseDOM('<a x="1 1 ">A</a>', 'a', {'x': aEnds('1')}), [])
+            self.assertEqual(parseDOM('<a x="1 3">A</a>', 'a', {'x': aEnds('1')}), [])
+            self.assertEqual(parseDOM('<a x="13">A</a>', 'a', {'x': aEnds('1')}), [])
+        with self.subTest('One aEnds() – match'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': aEnds('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="1 1">A</a>', 'a', {'x': aEnds('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="11">A</a>', 'a', {'x': aEnds('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="21">A</a>', 'a', {'x': aEnds('1')}), ['A'])
+        with self.subTest('One aEnds() – miss, two cond on "x"'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': [aEnds('1'), aEnds('2')]}), [])
+            self.assertEqual(parseDOM('<a x="2">A</a>', 'a', {'x': [aEnds('1'), aEnds('2')]}), [])
+            self.assertEqual(parseDOM('<a x="12">A</a>', 'a', {'x': [aEnds('1'), aEnds('2')]}), [])
+            self.assertEqual(parseDOM('<a x="21">A</a>', 'a', {'x': [aEnds('1'), aEnds('2')]}), [])
+        with self.subTest('One aEnds() – match (x, y)'):
+            self.assertEqual(parseDOM('<a x="1" y="2">A</a>', 'a', {'x': aEnds('1'), 'y': aEnds('2')}), ['A'])
+            self.assertEqual(parseDOM('<a x="11" y="2">A</a>', 'a', {'x': aEnds('1'), 'y': aEnds('2')}), ['A'])
+            self.assertEqual(parseDOM('<a x="1" y="22">A</a>', 'a', {'x': aEnds('1'), 'y': aEnds('2')}), ['A'])
+            self.assertEqual(parseDOM('<a x="2 1" y="1 2">A</a>', 'a', {'x': aEnds('1'), 'y': aEnds('2')}), ['A'])
+        with self.subTest('One aEnds() – miss (x, y)'):
+            self.assertEqual(parseDOM('<a x="1" y="3">A</a>', 'a', {'x': aEnds('1'), 'y': aEnds('2')}), [])
+            self.assertEqual(parseDOM('<a x="3" y="2">A</a>', 'a', {'x': aEnds('1'), 'y': aEnds('2')}), [])
+            self.assertEqual(parseDOM('<a x="12" y="2">A</a>', 'a', {'x': aEnds('1'), 'y': aEnds('2')}), [])
+            self.assertEqual(parseDOM('<a x="1" y="23">A</a>', 'a', {'x': aEnds('1'), 'y': aEnds('2')}), [])
+            self.assertEqual(parseDOM('<a x="1 2" y="2 1">A</a>', 'a', {'x': aEnds('1'), 'y': aEnds('2')}), [])
+
 
 
 class TestParseDOM_DomMatch(TestCase):
-    # DomMach result, compatibile with Cherry dom_parse()
+    # DomMach result, almost compatibile with Cherry dom_parse()
 
     def test_dommatch_base(self):
         with self.subTest('DomMatch ret'):
-            self.assertEqual(parseDOM('<b>B</b>', 'a', ret=True), [])
-            self.assertEqual(len(parseDOM('<a>A</a>', 'a', ret=True)), 1)
+            self.assertEqual(parseDOM('<b>B</b>', 'a', ret=DomMatch), [])
+            self.assertEqual(len(parseDOM('<a>A</a>', 'a', ret=DomMatch)), 1)
         with self.subTest('DomMatch type'):
-            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=True), [DomMatch({}, 'A')])
-            self.assertEqual(type(parseDOM('<a>A</a>', 'a', ret=True)[0]), DomMatch)
+            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=DomMatch), [DomMatch({}, 'A')])
+            self.assertEqual(type(parseDOM('<a>A</a>', 'a', ret=DomMatch)[0]), DomMatch)
 
     def test_dommatch_content(self):
         with self.subTest('DomMatch content by name'):
-            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=True)[0].content, 'A')
-            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=True)[0].content, 'A')
+            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=DomMatch)[0].content, 'A')
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=DomMatch)[0].content, 'A')
         with self.subTest('DomMatch content by index'):
-            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=True)[0][1], 'A')
-            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=True)[0][1], 'A')
+            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=DomMatch)[0][1], 'A')
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=DomMatch)[0][1], 'A')
 
     def test_dommatch_attr(self):
         with self.subTest('DomMatch attr by name'):
-            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=True)[0].attrs, {})
-            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=True)[0].attrs, {'x': '1'})
+            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=DomMatch)[0].attrs, {})
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=DomMatch)[0].attrs, {'x': '1'})
         with self.subTest('DomMatch attr by index'):
-            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=True)[0][0], {})
-            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=True)[0][0], {'x': '1'})
+            self.assertEqual(parseDOM('<a>A</a>', 'a', ret=DomMatch)[0][0], {})
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret=DomMatch)[0][0], {'x': '1'})
         with self.subTest('DomMatch many attrs'):
-            self.assertEqual(parseDOM('<a x="1" y="2">A</a>', 'a', ret=True)[0].attrs, {'x': '1', 'y': '2'})
-            self.assertEqual(parseDOM('<a y="2" x="1">A</a>', 'a', ret=True)[0].attrs, {'x': '1', 'y': '2'})
+            self.assertEqual(parseDOM('<a x="1" y="2">A</a>', 'a', ret=DomMatch)[0].attrs, {'x': '1', 'y': '2'})
+            self.assertEqual(parseDOM('<a y="2" x="1">A</a>', 'a', ret=DomMatch)[0].attrs, {'x': '1', 'y': '2'})
 
     def test_dommatch_source_list(self):
         sA, sAA = '<a>A</a>', '<a>A</a><a>A</a>'
@@ -360,14 +477,14 @@ class TestParseDOM_DomMatch(TestCase):
         mAx, mAAx, mAxAx = DomMatch({}, sAx), DomMatch({}, sAAx), DomMatch({}, sAxAx)
         A, Ax = DomMatch({}, 'A'), DomMatch({'x': '1'}, 'A')
         with self.subTest('Source list -> DomMatch'):
-            self.assertEqual(parseDOM([sA], 'a', ret=True), [A])
-            self.assertEqual(parseDOM([sAA], 'a', ret=True), [A, A])
-            self.assertEqual(parseDOM([sA, sA], 'a', ret=True), [A, A])
+            self.assertEqual(parseDOM([sA], 'a', ret=DomMatch), [A])
+            self.assertEqual(parseDOM([sAA], 'a', ret=DomMatch), [A, A])
+            self.assertEqual(parseDOM([sA, sA], 'a', ret=DomMatch), [A, A])
         with self.subTest('Source list (attr) -> DomMatch'):
-            self.assertEqual(parseDOM([sAx], 'a', ret=True), [Ax])
-            self.assertEqual(parseDOM([sAxAx], 'a', ret=True), [Ax, Ax])
-            self.assertEqual(parseDOM([sAAx], 'a', ret=True), [A, Ax])
-            self.assertEqual(parseDOM([sAx, sAx], 'a', ret=True), [Ax, Ax])
+            self.assertEqual(parseDOM([sAx], 'a', ret=DomMatch), [Ax])
+            self.assertEqual(parseDOM([sAxAx], 'a', ret=DomMatch), [Ax, Ax])
+            self.assertEqual(parseDOM([sAAx], 'a', ret=DomMatch), [A, Ax])
+            self.assertEqual(parseDOM([sAx, sAx], 'a', ret=DomMatch), [Ax, Ax])
 
     def test_dommatch_source_dommatch_list(self):
         sA, sAA = '<a>A</a>', '<a>A</a><a>A</a>'
@@ -376,14 +493,14 @@ class TestParseDOM_DomMatch(TestCase):
         mAx, mAAx, mAxAx = DomMatch({}, sAx), DomMatch({}, sAAx), DomMatch({}, sAxAx)
         A, Ax = DomMatch({}, 'A'), DomMatch({'x': '1'}, 'A')
         with self.subTest('Source DomMatch list -> DomMatch'):
-            self.assertEqual(parseDOM([sA], 'a', ret=True), [A])
-            self.assertEqual(parseDOM([sAA], 'a', ret=True), [A, A])
-            self.assertEqual(parseDOM([sA, sA], 'a', ret=True), [A, A])
+            self.assertEqual(parseDOM([sA], 'a', ret=DomMatch), [A])
+            self.assertEqual(parseDOM([sAA], 'a', ret=DomMatch), [A, A])
+            self.assertEqual(parseDOM([sA, sA], 'a', ret=DomMatch), [A, A])
         with self.subTest('Source DomMatch list (attr) -> DomMatch'):
-            self.assertEqual(parseDOM([mAx], 'a', ret=True), [Ax])
-            self.assertEqual(parseDOM([mAxAx], 'a', ret=True), [Ax, Ax])
-            self.assertEqual(parseDOM([mAAx], 'a', ret=True), [A, Ax])
-            self.assertEqual(parseDOM([mAx, mAx], 'a', ret=True), [Ax, Ax])
+            self.assertEqual(parseDOM([mAx], 'a', ret=DomMatch), [Ax])
+            self.assertEqual(parseDOM([mAxAx], 'a', ret=DomMatch), [Ax, Ax])
+            self.assertEqual(parseDOM([mAAx], 'a', ret=DomMatch), [A, Ax])
+            self.assertEqual(parseDOM([mAx, mAx], 'a', ret=DomMatch), [Ax, Ax])
 
     def test_dommatch_source_mixed_list(self):
         sA, sAA = '<a>A</a>', '<a>A</a><a>A</a>'
@@ -392,13 +509,13 @@ class TestParseDOM_DomMatch(TestCase):
         mAx, mAAx, mAxAx = DomMatch({}, sAx), DomMatch({}, sAAx), DomMatch({}, sAxAx)
         A, Ax = DomMatch({}, 'A'), DomMatch({'x': '1'}, 'A')
         with self.subTest('Source mixed list -> DomMatch'):
-            self.assertEqual(parseDOM([sA, mA], 'a', ret=True), [A, A])
-            self.assertEqual(parseDOM([mA, sA], 'a', ret=True), [A, A])
+            self.assertEqual(parseDOM([sA, mA], 'a', ret=DomMatch), [A, A])
+            self.assertEqual(parseDOM([mA, sA], 'a', ret=DomMatch), [A, A])
         with self.subTest('Source mixed list (attr) -> DomMatch'):
-            self.assertEqual(parseDOM([mAx], 'a', ret=True), [Ax])
-            self.assertEqual(parseDOM([mAxAx], 'a', ret=True), [Ax, Ax])
-            self.assertEqual(parseDOM([mAAx], 'a', ret=True), [A, Ax])
-            self.assertEqual(parseDOM([mAx, mAx], 'a', ret=True), [Ax, Ax])
+            self.assertEqual(parseDOM([mAx], 'a', ret=DomMatch), [Ax])
+            self.assertEqual(parseDOM([mAxAx], 'a', ret=DomMatch), [Ax, Ax])
+            self.assertEqual(parseDOM([mAAx], 'a', ret=DomMatch), [A, Ax])
+            self.assertEqual(parseDOM([mAx, mAx], 'a', ret=DomMatch), [Ax, Ax])
 
             #self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': aWord('1')}), [])
 

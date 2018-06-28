@@ -48,7 +48,7 @@ def check(fun, *args, **kwargs):
             t = T.timeit(cmd, number=n, globals=vars)
         else:
             t = T.timeit(cmd, 'from testParseDOM import prepare_html,mrknow,cherry,rysson; html=prepare_html()', number=n)
-        if t > 0.5:
+        if t > 0.2:
             return t / n
 
 
@@ -103,19 +103,23 @@ def test_pat_1(github=False):
 if __name__ == '__main__':
     github = sys.argv[1:2] == ['--github']
     print('zażółć', 3/2, 3//2, type(''), type(b''), bytes, basestring)
-    test_pat_1(github=github)
+    #test_pat_1(github=github)
 
     html = prepare_html()
 
-    mods = ('mrknow', 'cherry', 'rysson')
+    allmods = ('mrknow', 'cherry', 'rysson')
+    mods = ('cherry', 'rysson')
     if github:
         print('#### Python{py}\n\nTest | mrknow | cherry | rysson |\n----- | ----- | ----- | -----'.format(py=sys.version_info[0]))
         print(' | '.join(['tags'] + list('{t:.3f}'.format(t=check(mod + '.parseDOM', 'a')) for mod in mods)))
         print(' | '.join(['attrs'] + list('{t:.3f}'.format(t=check(mod + '.parseDOM', 'a', {'x': '1'})) for mod in mods)))
     else:
-        for mod in mods:
+        for mod in allmods:
             t = check(mod + '.parseDOM', 'a')
             print('Tag:  Python{py}, module: {mod}, time: {t:.3f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))
-        for mod in mods:
+        for mod in allmods:
             t = check(mod + '.parseDOM', 'a', {'x': '1'})
             print('Attr: Python{py}, module: {mod}, time: {t:.3f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))
+        for mod in mods:
+            t = check(mod + '.parse_dom', 'a')
+            print('Node: Python{py}, module: {mod}, time: {t:.3f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))
