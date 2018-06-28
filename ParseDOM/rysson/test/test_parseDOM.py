@@ -164,11 +164,32 @@ class TestParseDOM(TestCase):
         with self.subTest('A[x] {attr}'):
             self.assertEqual(parseDOM('<a x="1">A</a>', 'a', ret='x'), ['1'])
 
+    def test_many_parts(self):
+        with self.subTest('Parts: A'):
+            self.assertEqual(parseDOM(['<a>A</a>', '<a>A</a>'], 'a'), ['A', 'A'])
+        with self.subTest('Parts: A, A'):
+            self.assertEqual(parseDOM(['<a>A</a><a>B</a>', '<a>A</a><a>B</a>'], 'a'), ['A', 'B', 'A', 'B'])
+        with self.subTest('Parts: [A, B], [B A]'):
+            self.assertEqual(parseDOM(['<a>A</a><b>B</b>', '<b>A</b><a>B</a>'], 'a'), ['A', 'B'])
+        with self.subTest('Parts: A, B'):
+            self.assertEqual(parseDOM(['<a>A</a><b>B</b>', '<a>A</a><b>B</b>'], 'a'), ['A', 'A'])
+        with self.subTest('Parts: A > A'):
+            self.assertEqual(parseDOM(['<a>A<a>B</a>C</a>', '<a>A<a>B</a>C</a>'], 'a'), ['A<a>B</a>C', 'B', 'A<a>B</a>C', 'B'])
 
-    def test_x(self):
-        pass
-        #assert 0
-        #self.assertEqual(1, 2)
+    def test_many_parts_attr(self):
+        with self.subTest('Parts: A[x], A'):
+            self.assertEqual(parseDOM(['<a x="1">A</a><a>B</a>', '<a x="1">A</a><a>B</a>'], 'a', {'x': '1'}), ['A', 'A'])
+
+    def test_many_parts_ret(self):
+        with self.subTest('Parts: A, A {attr}'):
+            self.assertEqual(parseDOM(['<a x="1">A</a><a>B</a>', '<a x="1">A</a><a>B</a>'], 'a', {}, ret='x'), ['1', '1'])
+        with self.subTest('Parts: A[x], A {attr}'):
+            self.assertEqual(parseDOM(['<a x="1">A</a><a>B</a>', '<a x="1">A</a><a>B</a>'], 'a', {'x': '1'}, ret='x'), ['1', '1'])
+
+    #def test_x(self):
+    #    pass
+    #    #assert 0
+    #    #self.assertEqual(1, 2)
 
 
 
