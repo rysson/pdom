@@ -9,6 +9,8 @@ from unittest import TestCase
 from unittest import skip as skiptest, skipIf as skiptestIf
 
 from ..parseDOM import parseDOM
+from ..parseDOM import aWord, aWordStarts, aStarts, aEnds, aContains
+
 
 
 class TestParseDOM(TestCase):
@@ -164,42 +166,137 @@ class TestParseDOM(TestCase):
 
 
     def test_x(self):
-        assert 0
-        self.assertEqual(1, 2)
+        pass
+        #assert 0
+        #self.assertEqual(1, 2)
+
 
 
 class TestParseDOM_Extra(TestCase):
 
+    def test_attr_bool(self):
+        with self.subTest('A[x=True]'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a', {'x': True}), [])
+            self.assertEqual(parseDOM('<a x>A</a>', 'a', {'x': True}), ['A'])
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': True}), ['A'])
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': True}), ['A'])
+            self.assertEqual(parseDOM('<a y>A</a>', 'a', {'x': True}), [])
+            self.assertEqual(parseDOM('<a y="">A</a>', 'a', {'x': True}), [])
+            self.assertEqual(parseDOM('<a y="1">A</a>', 'a', {'x': True}), [])
+        with self.subTest('A[x=False]'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a', {'x': False}), ['A'])
+            self.assertEqual(parseDOM('<a x>A</a>', 'a', {'x': False}), [])
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': False}), [])
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': False}), [])
+            self.assertEqual(parseDOM('<a x="1" y="2">A</a>', 'a', {'x': False}), [])
+            self.assertEqual(parseDOM('<a y="2" x="1">A</a>', 'a', {'x': False}), [])
+            self.assertEqual(parseDOM('<a y="1">A</a>', 'a', {'x': False}), ['A'])
+        with self.subTest('A[x=None]'):
+            self.assertEqual(parseDOM('<a x>A</a>', 'a', {'x': None}), ['A'])
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': None}), ['A'])
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': None}), ['A'])
+            self.assertEqual(parseDOM('<a y>A</a>', 'a', {'x': None}), ['A'])
+            self.assertEqual(parseDOM('<a y="">A</a>', 'a', {'x': None}), ['A'])
+            self.assertEqual(parseDOM('<a y="1">A</a>', 'a', {'x': None}), ['A'])
+
+    def test_attr_empty(self):
+        # atribbute value [] match any attrbuite value (attribute must exist)
+        with self.subTest('A[x=[]]'):
+            self.assertEqual(parseDOM('<a x>A</a>', 'a', {'x': []}), ['A'])
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': []}), ['A'])
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': []}), ['A'])
+            self.assertEqual(parseDOM('<a x="2">A</a>', 'a', {'x': []}), ['A'])
+            self.assertEqual(parseDOM('<a x="1 2">A</a>', 'a', {'x': []}), ['A'])
+        with self.subTest('A[x=[]] - no attr'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a', {'x': []}), [])
+        with self.subTest('A[x=[]] - wrong attr'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a', {'x': []}), [])
+            self.assertEqual(parseDOM('<a y="">A</a>', 'a', {'x': []}), [])
+            self.assertEqual(parseDOM('<a y="1">A</a>', 'a', {'x': []}), [])
+        with self.subTest('A[x=[]] - wrong tag'):
+            self.assertEqual(parseDOM('<b x="">A</b>', 'a', {'x': []}), [])
+            self.assertEqual(parseDOM('<b y="">A</b>', 'a', {'x': []}), [])
+
     def test_attr_or(self):
         with self.subTest('A[x=1|2]'):
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': '1|2'}), [])
             self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': '1|2'}), ['A'])
             self.assertEqual(parseDOM('<a x="2">A</a>', 'a', {'x': '1|2'}), ['A'])
-            self.assertEqual(parseDOM('<a x="3">A</a>', 'a', {'x': '1|2'}), [''])
+            self.assertEqual(parseDOM('<a x="3">A</a>', 'a', {'x': '1|2'}), [])
         with self.subTest('A[x=1|2][y]'):
             self.assertEqual(parseDOM('<a x="1" y="5">A</a>', 'a', {'x': '1|2', 'y': '5'}), ['A'])
             self.assertEqual(parseDOM('<a x="2" y="5">A</a>', 'a', {'x': '1|2', 'y': '5'}), ['A'])
-            self.assertEqual(parseDOM('<a x="3" y="5">A</a>', 'a', {'x': '1|2', 'y': '5'}), [''])
-            self.assertEqual(parseDOM('<a x="1" y="6">A</a>', 'a', {'x': '1|2', 'y': '5'}), [''])
-            self.assertEqual(parseDOM('<a x="2" y="6">A</a>', 'a', {'x': '1|2', 'y': '5'}), [''])
-            self.assertEqual(parseDOM('<a x="3" y="6">A</a>', 'a', {'x': '1|2', 'y': '5'}), [''])
-        #with self.subTest('A[x[]][y[]]'):
+            self.assertEqual(parseDOM('<a x="3" y="5">A</a>', 'a', {'x': '1|2', 'y': '5'}), [])
+            self.assertEqual(parseDOM('<a x="1" y="6">A</a>', 'a', {'x': '1|2', 'y': '5'}), [])
+            self.assertEqual(parseDOM('<a x="2" y="6">A</a>', 'a', {'x': '1|2', 'y': '5'}), [])
+            self.assertEqual(parseDOM('<a x="3" y="6">A</a>', 'a', {'x': '1|2', 'y': '5'}), [])
 
-    @skiptest('Not fixed yet')
     def test_attr_list_and(self):
-        with self.subTest('A[x[]]'):
-            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': ['1', '2']}), ['A'])
-            self.assertEqual(parseDOM('<a x="2">A</a>', 'a', {'x': ['1', '2']}), ['A'])
-            self.assertEqual(parseDOM('<a x="3">A</a>', 'a', {'x': ['1', '2']}), [''])
-        with self.subTest('A[x[]][y]'):
-            self.assertEqual(parseDOM('<a x="1" y="5">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), ['A'])
-            self.assertEqual(parseDOM('<a x="2" y="5">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), ['A'])
-            self.assertEqual(parseDOM('<a x="3" y="5">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), [''])
-            self.assertEqual(parseDOM('<a x="1" y="6">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), [''])
-            self.assertEqual(parseDOM('<a x="2" y="6">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), [''])
-            self.assertEqual(parseDOM('<a x="3" y="6">A</a>', 'a', {'x': ['1', '2'], 'y': '5'}), [''])
-        #with self.subTest('A[x[]][y[]]'):
+        with self.subTest(r'A[x[\b1,2\b]]'):
+            self.assertEqual(parseDOM('<a x="12">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b']}), ['A'])
+            self.assertEqual(parseDOM('<a x="21">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b']}), [])
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b']}), [])
+            self.assertEqual(parseDOM('<a x="2">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b']}), [])
+            self.assertEqual(parseDOM('<a x="3">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b']}), [])
+        with self.subTest(r'A[x[\b1,2\b]][y] (y matchs)'):
+            self.assertEqual(parseDOM('<a x="12" y="5">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), ['A'])
+            self.assertEqual(parseDOM('<a x="21" y="5">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
+            self.assertEqual(parseDOM('<a x="1" y="5">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
+            self.assertEqual(parseDOM('<a x="2" y="5">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
+            self.assertEqual(parseDOM('<a x="3" y="5">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
+        with self.subTest(r'A[x[\b1,2\b]][y] (y does not match)'):
+            self.assertEqual(parseDOM('<a x="12" y="6">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
+            self.assertEqual(parseDOM('<a x="21" y="6">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
+            self.assertEqual(parseDOM('<a x="1" y="6">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
+            self.assertEqual(parseDOM('<a x="2" y="6">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
+            self.assertEqual(parseDOM('<a x="3" y="6">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
 
     def test_x(self):
         #self.assertEqual(1, 2)
         pass
+
+
+
+class TestParseDOM_AttrFunc(TestCase):
+
+    def test_attr_func_aWord_1(self):
+        with self.subTest('One aWord() – empty'):
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': aWord('1')}), [])
+        with self.subTest('One aWord() - single value'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': aWord('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x=" 1">A</a>', 'a', {'x': aWord('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="1 ">A</a>', 'a', {'x': aWord('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="11">A</a>', 'a', {'x': aWord('1')}), [])
+        with self.subTest('One aWord() - many values'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': aWord('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="1 2">A</a>', 'a', {'x': aWord('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="2 1">A</a>', 'a', {'x': aWord('1')}), ['A'])
+            self.assertEqual(parseDOM('<a x="2 1 3">A</a>', 'a', {'x': aWord('1')}), ['A'])
+        with self.subTest('One aWord() - miss'):
+            self.assertEqual(parseDOM('<a x="12">A</a>', 'a', {'x': aWord('1')}), [])
+            self.assertEqual(parseDOM('<a x="2 11 3">A</a>', 'a', {'x': aWord('1')}), [])
+            self.assertEqual(parseDOM('<a x="2 3">A</a>', 'a', {'x': aWord('1')}), [])
+
+    def test_attr_func_aWord_2(self):
+        with self.subTest('Two aWord() - miss, no one exists'):
+            self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="3">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), [])
+            self.assertEqual(parseDOM('<a y="1 2">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), [])
+            self.assertEqual(parseDOM('<a y="11 22">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="12">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), [])
+        with self.subTest('Two aWord() - miss, one exists'):
+            self.assertEqual(parseDOM('<a x="1">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="2">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="1 22">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), [])
+            self.assertEqual(parseDOM('<a x="11 2">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), [])
+        with self.subTest('Two aWord() - two exist'):
+            self.assertEqual(parseDOM('<a x="1 2">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="2 1">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="1 2 3">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="0 1 2">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="0 1 2 3">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="0 2 1 3">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="1 0 2">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
+            self.assertEqual(parseDOM('<a x="2 0 1">A</a>', 'a', {'x': [ aWord('1'), aWord('2') ] }), ['A'])
+
 

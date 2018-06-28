@@ -53,6 +53,8 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
     # Copyright (C) 2010-2011 Tobias Ussing And Henrik Mosgaard Jensen
     # Refactoring by Robert Kalinowski <robert.kalinowski@sharkbits.com>
 
+    class BreakAtrrloop(Exception): pass
+
     #print('parseDOM: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
     if isinstance(html, type_bytes):
         try:
@@ -68,15 +70,19 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
     pats.anyTag       = r'''[\w-]+'''
     pats.anyAttrVal   = r'''(?:=(?:[^\s/>'"]+|"[^"]*?"|'[^']*?'))?'''
     pats.askAttrVal   = r'''(?:=(?:([^\s/>'"]+)|"([^"]*?)"|'([^']*?)'))?'''
-    pats.anyAttr      = r'''(?:\s+[\w-]+{val})*'''.format(val=pats.anyAttrVal)
-    pats.mtag         = lambda n: r'''{n}(?=[\s/>])'''.format(n=n)
-    pats.mattr        = lambda n, v: (r'''\s+{n}(?:=(?:{v}(?=[\s/>])|"{v}"|'{v}'))''' \
-                                      if v and v is not True else \
-                                      r'''{n}(?=[\s/>=])''').format(n=n, v=v)
+    pats.anyAttrName  = r'''[\w-]+'''
+    pats.anyAttr      = r'''(?:\s+{anyAttrName}{anyAttrVal})*'''.format(**pats)
+    pats.mtag         = lambda n: r'''{n}(?=[\s/>])'''.format(n='(?:{})'.format(n))
+    pats.mattr        = lambda n, v: \
+            r'''(?:\s+{attr}{anyAttrVal})'''.format(attr=n, **pats) \
+            if v is True else \
+            r'''\s+{n}(?:=(?:{v}(?=[\s/>])|"{v}"|'{v}'))'''.format(n='(?:{})'.format(n), v='(?:{})'.format(v or ''))
     pats.melem        = lambda t, a, v: \
+        r'''<{tag}(?:\s+(?!{attr}){anyAttrName}{anyAttrVal})*\s*/?>'''.format(tag=pats.mtag(t), attr=a, **pats)  \
+        if a and v is False else \
         r'''<{tag}{anyAttr}{attr}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), attr=pats.mattr(a, v), **pats)  \
         if a else \
-        r'''<{tag}{anyAttr}\s*/?>'''.format(tag=t, **pats)
+        r'''<{tag}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), **pats)
     pats.getTag       = r'''<([\w-]+(?=[\s/>]))'''
 
     if not name.strip():
@@ -86,28 +92,39 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
     ret_lst = []
     for item in html:
         lst = None
-        for key, vals in (attrs or {None: None}).items():
-            if not isinstance(vals, list):
-                vals = [ vals ]
-            for val in vals:
-                lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, key, val), item, re.S))
-                if lst is None:   # First match
-                    lst = lst2
-                else:             # Delete anything missing from the next list.
-                    for i in range(len(lst)-1, -1, -1):
-                        if not lst[i] in lst2:
-                            del lst[i]
-                if not lst:
-                    break
-            if not lst:
-                break
+        try:
+            for key, vals in (attrs or {None: None}).items():
+                if not isinstance(vals, list):
+                    vals = [ vals ]
+                elif not vals:   # empty values means any value
+                    vals = [ True ]
+                for val in vals:
+                    vkey = key
+                    #print(f'-- key: {vkey!r}, val: "{val}"')
+                    if key and val is None:  # Skip this attribute
+                        vkey = None
+                        #print(f'-> key: {vkey!r}, val: "{val}"')
+                    #print('PAT', pats.melem(name, vkey, val))
+                    lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, vkey, val), item, re.S))
+                    #print(' L2', lst2)
+                    #print(' L ', lst)
+                    if lst is None:   # First match
+                        lst = lst2
+                    else:             # Delete anything missing from the next list.
+                        for i in range(len(lst)-1, -1, -1):
+                            if not lst[i] in lst2:
+                                del lst[i]
+                    if not lst:
+                        break
+        except BreakAtrrloop:
+            pass
         if not lst:
             continue
 
         if ret:
             # Get attribute value
             lst2 = []
-            pat = r'''<{tag}{anyAttr}?\s+{attr}{askAttrVal}{anyAttr}\s*/?>'''
+            pat = r'''<(?:{tag}){anyAttr}?\s+(?:{attr}){askAttrVal}{anyAttr}\s*/?>'''
             for match, (ms, me) in lst:
                 if isinstance(ret, list):
                     # Many attributes at once
@@ -293,7 +310,8 @@ if __name__ == '__main__':
     </div>
     '''
 
-    print(parseDOM('<a y="2">A</a>', 'a', {'x': '1', 'y': '2'})); exit()
+    #print(parseDOM('<a x="1" y="1">A</a>', 'a', {'x': False}))
+    #exit()
 
     #test_parseDOM(html)
     print(' - - - - -')
