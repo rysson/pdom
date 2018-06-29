@@ -8,12 +8,30 @@ try:
 except ImportError:
     print('WARNING: no furure module')
 
-from unittest import TestCase
+import sys
+PY2 = sys.version_info[0] == 2
+if PY2:
+    from unittest import TestCase as UTestCase
+    class TestCaseSubTest(object):
+        def __init__(self, test, title):
+            self.test, self.title = test, title
+        def __enter__(self):
+            return self
+        def __exit__(self, type, value, traceback):
+            pass
+    class TestCase(UTestCase):
+        def subTest(self, title):
+            return TestCaseSubTest(self, title)
+else:
+    from unittest import TestCase
 from unittest import skip as skiptest, skipIf as skiptestIf
 
 from ..parseDOM import parseDOM
 from ..parseDOM import aWord, aWordStarts, aStarts, aEnds, aContains
 from ..parseDOM import DomMatch   # for test only
+
+
+
 
 
 

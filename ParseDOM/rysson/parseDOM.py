@@ -385,7 +385,12 @@ if __name__ == '__main__':
     </div>
     '''
 
-    print(parseDOM('<a>A</a><b>B</b><c>C</c>', None))
+    sA, sAA = '<a>A</a>', '<a>A</a><a>A</a>'
+    sAx, sAAx, sAxAx = '<a x="1">A</a>', '<a>A</a><a x="1">A</a>', '<a x="1">A</a><a x="1">A</a>'
+    mA, mAA = DomMatch({}, sA), DomMatch({}, sAA)
+    mAx, mAAx, mAxAx = DomMatch({}, sAx), DomMatch({}, sAAx), DomMatch({}, sAxAx)
+    A, Ax = DomMatch({}, 'A'), DomMatch({'x': '1'}, 'A')
+    print(parseDOM([mAx], 'a', ret=DomMatch))
     exit()
 
     #test_parseDOM(html)
