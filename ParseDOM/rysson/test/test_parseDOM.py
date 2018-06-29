@@ -308,9 +308,13 @@ class TestParseDOM_Extra(TestCase):
             self.assertEqual(parseDOM('<a x="2" y="6">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
             self.assertEqual(parseDOM('<a x="3" y="6">A</a>', 'a', {'x': [r'\b1.*?', r'.*?2\b'], 'y': '5'}), [])
 
-    def test_x(self):
-        #self.assertEqual(1, 2)
-        pass
+    def test_comments(self):
+        with self.subTest('Exclude comments: no comments'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a'), ['A'])
+        with self.subTest('Exclude comments: one comment'):
+            self.assertEqual(parseDOM('<a>A<!-- X --></a>', 'a'), ['A<!-- X -->'])
+            #self.assertEqual(parseDOM('<a>A<!-- X --></a>', 'a', exclude_comments=True), ['A'])
+            #self.assertEqual(parseDOM('<a><!-- X -->A</a>', 'a', exclude_comments=True), ['A'])
 
 
 
@@ -552,5 +556,22 @@ class TestParseDOM_DomMatch(TestCase):
             self.assertEqual(parseDOM([mAAx], 'a', ret=DomMatch), [A, Ax])
             self.assertEqual(parseDOM([mAx, mAx], 'a', ret=DomMatch), [Ax, Ax])
 
-            #self.assertEqual(parseDOM('<a x="">A</a>', 'a', {'x': aWord('1')}), [])
+    def test_tuple(self):
+        sA = '<a>A</a>'
+        mA = DomMatch({}, sA)
+        with self.subTest('MatchDom vs. tuple'):
+            self.assertEqual(parseDOM(mA, 'a'), ['A'])
+            self.assertEqual(parseDOM([mA], 'a'), ['A'])
+            self.assertEqual(parseDOM((mA,), 'a'), ['A'])
+        mA = DomMatch({'x': '1'}, sA)
+        with self.subTest('MatchDom(attrs) vs. tuple'):
+            self.assertEqual(parseDOM(mA, 'a'), ['A'])
+            self.assertEqual(parseDOM([mA], 'a'), ['A'])
+            self.assertEqual(parseDOM((mA,), 'a'), ['A'])
+        mA = DomMatch({'<a>X</a>': '1'}, sA)
+        with self.subTest('MatchDom(fake attrs) vs. tuple'):
+            self.assertEqual(parseDOM(mA, 'a'), ['A'])
+            self.assertEqual(parseDOM([mA], 'a'), ['A'])
+            self.assertEqual(parseDOM((mA,), 'a'), ['A'])
+
 

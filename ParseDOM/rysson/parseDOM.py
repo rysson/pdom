@@ -58,10 +58,10 @@ def aContains(s):
 
 def _tostr(s):
     """Change bytes to string (also in list)"""
-    if isinstance(s, (list, tuple)):
-        return list(_tostr(z) for z in s)
     if isinstance(s, DomMatch):
         s = s.content
+    elif isinstance(s, (list, tuple)):
+        return list(_tostr(z) for z in s)
     if s is None or s is False or s is True:
         s = ''
     elif isinstance(s, type_bytes):
@@ -75,7 +75,7 @@ def _tostr(s):
 
 
 
-def parseDOM(html, name=None, attrs=None, ret=None):
+def parseDOM(html, name=None, attrs=None, ret=None, exclude_comments=False):
     """
     Simple parse HTML/XML to get tags.
 
@@ -106,7 +106,7 @@ def parseDOM(html, name=None, attrs=None, ret=None):
     #   Copyright (C) 2010-2011 Tobias Ussing And Henrik Mosgaard Jensen
 
     #print('parseDOM: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
-    if not isinstance(html, (list, tuple)):
+    if isinstance(html, DomMatch) or not isinstance(html, (list, tuple)):
         html = [ html ]
 
     pats = AttrDict()
@@ -129,6 +129,10 @@ def parseDOM(html, name=None, attrs=None, ret=None):
         r'''<{tag}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), **pats)
     pats.getTag       = r'''<([\w-]+(?=[\s/>]))'''
 
+    if exclude_comments:
+        # TODO: make it good, it's to simple, should ommit quotation in attribute
+        re_comments = re.compile('<!--.*?-->', re.DOTALL)
+
     name = _tostr(name).strip()
     if not name or name == '*':
         name = pats.anyTag   # any tag
@@ -139,13 +143,13 @@ def parseDOM(html, name=None, attrs=None, ret=None):
         if match.endswith('/>'):   # <tag/> has no content
             return me, me
         # Recover tag name (important for "*")
-        r = re.match(pats.getTag, match, re.S)
+        r = re.match(pats.getTag, match, re.DOTALL)
         tag = r.group(1) if r else name
         # find closing tag
         ce = me
         pat = '(?:<(?P<beg>{anyTag}){anyAttr}\s*>)|(?:</(?P<end>{anyTag})\s*>)'
         tag_stack = [ tag ]
-        for r in re.compile(pat.format(tag=tag, **pats), re.S).finditer(item, me):
+        for r in re.compile(pat.format(tag=tag, **pats), re.DOTALL).finditer(item, me):
             d = AttrDict(r.groupdict())
             if d.beg:
                 tag_stack.append(d.beg)
@@ -161,16 +165,12 @@ def parseDOM(html, name=None, attrs=None, ret=None):
 
     ret_lst = []
     for item in html:
-        if isinstance(item, DomMatch):
-            item = item.content
-        if isinstance(item, type_bytes):
-            try:
-                item = item.decode("utf-8")
-            except:
-                pass
-        elif not isinstance(item, type_str):
-            print('SS', type(item))
+        item = _tostr(item)
+        if exclude_comments:
+            item = re_comments.sub(item, '')
+        if not item:
             continue
+
         lst = None
         try:
             for key, vals in (attrs or {None: None}).items():
@@ -185,7 +185,7 @@ def parseDOM(html, name=None, attrs=None, ret=None):
                         vkey = None
                         #print(f'-> key: {vkey!r}, val: "{val}"')
                     #print('PAT', pats.melem(name, vkey, val))
-                    lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, vkey, val), item, re.S))
+                    lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL))
                     #print(' L2', lst2)
                     #print(' L ', lst)
                     if lst is None:   # First match
@@ -208,7 +208,7 @@ def parseDOM(html, name=None, attrs=None, ret=None):
             lst2 = []
             for match, (ms, me) in lst:
                 attrs = dict((attr.lower(), a or b or c) \
-                    for attr, a, b, c in re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats), match, re.S))
+                    for attr, a, b, c in re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats), match, re.DOTALL))
                 cs, ce = find_closing(name, match, item, ms, me)
                 lst2.append(ret(attrs, item[cs:ce]))
             lst = lst2
@@ -220,11 +220,11 @@ def parseDOM(html, name=None, attrs=None, ret=None):
                 if isinstance(ret, list):
                     # Many attributes at once
                     lst2.append(list(
-                        a or b or c for rt in ret for a, b, c in re.findall(pat.format(tag=name, attr=rt, **pats), match, re.S)
+                        a or b or c for rt in ret for a, b, c in re.findall(pat.format(tag=name, attr=rt, **pats), match, re.DOTALL)
                     ))
                 else:
                     # Single attribute
-                    r = re.search(pat.format(tag=name, attr=ret, **pats), match, re.S)
+                    r = re.search(pat.format(tag=name, attr=ret, **pats), match, re.DOTALL)
                     if r:
                         lst2 += r.group(1) or r.group(2) or r.group(3)
             lst = lst2
