@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, division, unicode_literals, print_function
-from future import standard_library
-from future.builtins import *
-standard_library.install_aliases()
+try:
+    from future import standard_library
+    from future.builtins import *
+    standard_library.install_aliases()
+except ImportError:
+    print('WARNING: no furure module')
 
 from unittest import TestCase
 from unittest import skip as skiptest, skipIf as skiptestIf
@@ -15,6 +18,20 @@ from ..parseDOM import DomMatch   # for test only
 
 
 class TestParseDOM(TestCase):
+
+    def test_input(self):
+        with self.subTest('Unicode      (Py2: unicode, Py3: str)'):
+            self.assertEqual(parseDOM('<a>A</a>', 'a'), ['A'])
+        with self.subTest('Bytes        (Py2: str,     Py3: bytes)'):
+            self.assertEqual(parseDOM(b'<a>A</a>', 'a'), ['A'])
+        with self.subTest('Unicode list (Py2: unicode, Py3: str)'):
+            self.assertEqual(parseDOM(['<a>A</a>'], 'a'), ['A'])
+            self.assertEqual(parseDOM(['<a>A</a>', '<a>A</a>'], 'a'), ['A', 'A'])
+        with self.subTest('Bytes list   (Py2: str,     Py3: bytes)'):
+            self.assertEqual(parseDOM([b'<a>A</a>'], 'a'), ['A'])
+            self.assertEqual(parseDOM([b'<a>A</a>', b'<a>A</a>'], 'a'), ['A', 'A'])
+        with self.subTest('Mixed list   (Py2: unicode + str,  Py3: str + bytes)'):
+            self.assertEqual(parseDOM(['<a>A</a>', b'<a>A</a>'], 'a'), ['A', 'A'])
 
     def test_tag(self):
         with self.subTest('A'):

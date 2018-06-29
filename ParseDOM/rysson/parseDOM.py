@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, division, unicode_literals, print_function
-from future import standard_library
-from future.builtins import *
-standard_library.install_aliases()
+try:
+    from future import standard_library
+    from future.builtins import *
+    standard_library.install_aliases()
+except ImportError:
+    print('WARNING: no furure module')
 
 import sys
 import re
@@ -54,19 +57,13 @@ def aContains(s):
 
 
 def parseDOM(html, name=u"", attrs={}, ret=False):
-    # Copyright (C) 2010-2011 Tobias Ussing And Henrik Mosgaard Jensen
-    # Refactoring by Robert Kalinowski <robert.kalinowski@sharkbits.com>
+    # Author: Robert Kalinowski <robert.kalinowski@sharkbits.com>
+    # Idea taken form parseDOM() by Tobias and Henrik:
+    #   Copyright (C) 2010-2011 Tobias Ussing And Henrik Mosgaard Jensen
 
     #print('parseDOM: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
-    if isinstance(html, type_bytes):
-        try:
-            html = [html.decode("utf-8")] # Replace with chardet thingy
-        except:
-            html = [html]
-    elif isinstance(html, type_str):
-        html = [html]
-    elif not isinstance(html, list):
-        return u""
+    if not isinstance(html, (list, tuple)):
+        html = [ html ]
 
     pats = AttrDict()
     pats.anyTag       = r'''[\w-]+'''
@@ -121,6 +118,14 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
     for item in html:
         if isinstance(item, DomMatch):
             item = item.content
+        if isinstance(item, type_bytes):
+            try:
+                item = item.decode("utf-8")
+            except:
+                pass
+        elif not isinstance(item, type_str):
+            print('SS', type(item))
+            continue
         lst = None
         try:
             for key, vals in (attrs or {None: None}).items():
