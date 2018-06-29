@@ -163,6 +163,24 @@ class TestParseDOM(TestCase):
         self.assertEqual(parseDOM('<a x="1" y="2">A</a><a x="1" y="2">B</a>', 'a', {'x': '1', 'y': '2'}), ['A', 'B'])
         self.assertEqual(parseDOM('<a x="1" y="2"><a>A</a></a>', 'a', {'x': '1', 'y': '2'}), ['<a>A</a>'])
 
+    def test_all_tags(self):
+        with self.subTest('Any tag'):
+            self.assertEqual(parseDOM('<a>A</a><b>B</b><c>C</c>', None), ['A', 'B', 'C'])
+            self.assertEqual(parseDOM('<a>A</a><b>B</b><c>C</c>', False), ['A', 'B', 'C'])
+            self.assertEqual(parseDOM('<a>A</a><b>B</b><c>C</c>', ''), ['A', 'B', 'C'])
+            self.assertEqual(parseDOM('<a>A</a><b>B</b><c>C</c>', b''), ['A', 'B', 'C'])
+            self.assertEqual(parseDOM('<a>A</a><b>B</b><c>C</c>', '*'), ['A', 'B', 'C'])
+            self.assertEqual(parseDOM('<a>A</a><b>B</b><c>C</c>', b'*'), ['A', 'B', 'C'])
+        with self.subTest('*'):
+            self.assertEqual(parseDOM('<a>A</a><b>B</b><c>C</c>', '*'), ['A', 'B', 'C'])
+            self.assertEqual(parseDOM('<a x="1">A</a><b x="1">B</b><c>C</c>', None), ['A', 'B', 'C'])
+
+    def test_only_attrs(self):
+        with self.subTest('*[x]'):
+            self.assertEqual(parseDOM('<a>A</a><b>B</b><c>C</c>', '*', {'x': '1'}), [])
+            self.assertEqual(parseDOM('<a x="1">A</a><b x="1">B</b><c>C</c>', '', {'x': '1'}), ['A', 'B'])
+            self.assertEqual(parseDOM('<a x="1">A</a><b x="1">B</b><c>C</c>', '*', {'x': '1'}), ['A', 'B'])
+
     def test_content(self):
         with self.subTest('A'):
             self.assertEqual(parseDOM('<a>A</a>', 'a'), ['A'])

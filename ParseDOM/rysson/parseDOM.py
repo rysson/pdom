@@ -56,9 +56,53 @@ def aContains(s):
     return u'''[^'"]*?{}[^'"]*?'''.format(s)
 
 
-def parseDOM(html, name=u"", attrs={}, ret=False):
+def _tostr(s):
+    """Change bytes to string (also in list)"""
+    if isinstance(s, (list, tuple)):
+        return list(_tostr(z) for z in s)
+    if isinstance(s, DomMatch):
+        s = s.content
+    if s is None or s is False or s is True:
+        s = ''
+    elif isinstance(s, type_bytes):
+        try:
+            s =  s.decode("utf-8")
+        except:
+            pass
+    elif not isinstance(s, basestring):
+        s = str(s)
+    return s
+
+
+
+def parseDOM(html, name=None, attrs=None, ret=None):
+    """
+    Simple parse HTML/XML to get tags.
+
+    Function parses HTML/XML, finds tags with attribites
+    and returns matching tags content or attribute.
+
+    Paramters
+    ---------
+    html : str or bytes or DomMatch or list of str or list of bytes or list of DomMatch
+        HTML/XML source. Directly or list of HTML/XML parts.
+    name : str or bytes or None
+        Tag name ot None if you want to match any tag. Can be regex string (e.g. "div|p").
+    attr : dict or None
+        Attributes to match or None if attributes has no matter. See below.
+    ret : str or bytes or list of str or list of bytes or DomMatch or False or None
+        What to return. Tag content if False or None, DomMatch nodes or attributes.
+
+    Returns
+    -------
+    list of str
+        List of matched tags content (innerHTML) or matched attribute values if ret is used.
+    list of DomMatch
+        List of DomMatch mached nodes (attribute and content tuples) if ret is DomMatch.
+
+    """
     # Author: Robert Kalinowski <robert.kalinowski@sharkbits.com>
-    # Idea taken form parseDOM() by Tobias and Henrik:
+    # Idea is taken form parseDOM() by Tobias and Henrik:
     #   Copyright (C) 2010-2011 Tobias Ussing And Henrik Mosgaard Jensen
 
     #print('parseDOM: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
@@ -85,7 +129,8 @@ def parseDOM(html, name=u"", attrs={}, ret=False):
         r'''<{tag}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), **pats)
     pats.getTag       = r'''<([\w-]+(?=[\s/>]))'''
 
-    if not (name or '').strip():
+    name = _tostr(name).strip()
+    if not name or name == '*':
         name = pats.anyTag   # any tag
 
     class BreakAtrrloop(Exception): pass
@@ -340,7 +385,7 @@ if __name__ == '__main__':
     </div>
     '''
 
-    print(parseDOM('', 'b', ret=True))
+    print(parseDOM('<a>A</a><b>B</b><c>C</c>', None))
     exit()
 
     #test_parseDOM(html)
