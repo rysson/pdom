@@ -18,14 +18,14 @@ try:
 except ImportError:
     Response = None
 
-
 if sys.version_info < (3,0):
     type_str, type_bytes = unicode, str
+    class Enum: pass
 else:
     type_str, type_bytes, unicode, basestring = str, bytes, str, str
+    from enum import Enum
 
 
-DomMatch = namedtuple('DomMatch', ['attrs', 'content'])
 
 class AttrDict(dict):
     """dict() + attribute access"""
@@ -37,6 +37,67 @@ class AttrDict(dict):
 
     def __setattr__(self, key, value):
         self[key] = value
+
+
+class Patterns(AttrDict):
+    """All usefull patterns"""
+    def __init__(self):
+        pats = self
+        pats.anyTag       = r'''[\w-]+'''
+        pats.anyAttrVal   = r'''(?:=(?:[^\s/>'"]+|"[^"]*?"|'[^']*?'))?'''
+        pats.askAttrVal   = r'''(?:=(?:(?P<val1>[^\s/>'"]+)|"(?P<val2>[^"]*?)"|'(?P<val3>[^']*?)'))?'''
+        pats.anyAttrName  = r'''[\w-]+'''
+        pats.askAttrName  = r'''(?P<attr>[\w-]+)'''
+        pats.anyAttr      = r'''(?:\s+{anyAttrName}{anyAttrVal})*'''.format(**pats)
+        pats.mtag         = lambda n: r'''{n}(?=[\s/>])'''.format(n='(?:{})'.format(n))
+        pats.mattr        = lambda n, v: \
+                r'''(?:\s+{attr}{anyAttrVal})'''.format(attr=n, **pats) \
+                if v is True else \
+                r'''\s+{n}(?:=(?:{v}(?=[\s/>])|"{v}"|'{v}'))'''.format(n='(?:{})'.format(n), v='(?:{})'.format(v or ''))
+        pats.melem        = lambda t, a, v: \
+            r'''<{tag}(?:\s+(?!{attr}){anyAttrName}{anyAttrVal})*\s*/?>'''.format(tag=pats.mtag(t), attr=a, **pats)  \
+            if a and v is False else \
+            r'''<{tag}{anyAttr}{attr}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), attr=pats.mattr(a, v), **pats)  \
+            if a else \
+            r'''<{tag}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), **pats)
+        pats.getTag       = r'''<([\w-]+(?=[\s/>]))'''
+        pats.openCloseTag = '(?:<(?P<beg>{anyTag}){anyAttr}\s*>)|(?:</(?P<end>{anyTag})\s*>)'.format(**pats)
+        pats.nodeTag = '(?:<(?P<beg>{anyTag}){anyAttr}(?:\s*(?P<slf>/))?\s*>)|(?:</(?P<end>{anyTag})\s*>)'.format(**pats)
+
+
+pats = Patterns()
+remove_tags_re = re.compile(pats.nodeTag)
+
+class DomMatch(namedtuple('DomMatch', ['attrs', 'content'])):
+    __slots__ = ()
+    @property
+    def text(self):
+        return remove_tags_re.sub('', self.content)
+
+
+class Result(Enum):
+    Content = 0
+    Node = 1
+    Text = 2
+    InnerHTML = Content
+    OuterHTML = 3
+
+
+class ExtraResult(list):
+    r"""
+    Helper to tell dom_search() more details about result.
+
+    Parameters
+    ----------
+    vals : list
+        List of object (e.g. attributes) in result.
+    separate : bool, default False
+        If true dom_search() return content and values separated.
+    """
+    def __init__(self, vals, separate=False, skip_missing=False):
+        super(ExtraResult, self).__init__(vals)
+        self.separate = separate
+        self.skip_missing = skip_missing
 
 
 def aWord(s):
@@ -94,7 +155,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         Tag name ot None if you want to match any tag. Can be regex string (e.g. "div|p").
     attr : dict or None
         Attributes to match or None if attributes has no matter. See below.
-    ret : str or bytes or list of str or list of bytes or DomMatch or False or None
+    ret : str or list of str or DomMatch or False or None
         What to return. Tag content if False or None, DomMatch nodes or attributes.
 
     Returns
@@ -115,25 +176,6 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     if isinstance(html, DomMatch) or not isinstance(html, (list, tuple)):
         html = [ html ]
 
-    pats = AttrDict()
-    pats.anyTag       = r'''[\w-]+'''
-    pats.anyAttrVal   = r'''(?:=(?:[^\s/>'"]+|"[^"]*?"|'[^']*?'))?'''
-    pats.askAttrVal   = r'''(?:=(?:(?P<val1>[^\s/>'"]+)|"(?P<val2>[^"]*?)"|'(?P<val3>[^']*?)'))?'''
-    pats.anyAttrName  = r'''[\w-]+'''
-    pats.askAttrName  = r'''(?P<attr>[\w-]+)'''
-    pats.anyAttr      = r'''(?:\s+{anyAttrName}{anyAttrVal})*'''.format(**pats)
-    pats.mtag         = lambda n: r'''{n}(?=[\s/>])'''.format(n='(?:{})'.format(n))
-    pats.mattr        = lambda n, v: \
-            r'''(?:\s+{attr}{anyAttrVal})'''.format(attr=n, **pats) \
-            if v is True else \
-            r'''\s+{n}(?:=(?:{v}(?=[\s/>])|"{v}"|'{v}'))'''.format(n='(?:{})'.format(n), v='(?:{})'.format(v or ''))
-    pats.melem        = lambda t, a, v: \
-        r'''<{tag}(?:\s+(?!{attr}){anyAttrName}{anyAttrVal})*\s*/?>'''.format(tag=pats.mtag(t), attr=a, **pats)  \
-        if a and v is False else \
-        r'''<{tag}{anyAttr}{attr}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), attr=pats.mattr(a, v), **pats)  \
-        if a else \
-        r'''<{tag}{anyAttr}\s*/?>'''.format(tag=pats.mtag(t), **pats)
-    pats.getTag       = r'''<([\w-]+(?=[\s/>]))'''
 
     if exclude_comments:
         # TODO: make it good, it's to simple, should ommit quotation in attribute
@@ -153,9 +195,8 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         tag = r.group(1) if r else name
         # find closing tag
         ce = me
-        pat = '(?:<(?P<beg>{anyTag}){anyAttr}\s*>)|(?:</(?P<end>{anyTag})\s*>)'
         tag_stack = [ tag ]
-        for r in re.compile(pat.format(tag=tag, **pats), re.DOTALL).finditer(item, me):
+        for r in re.compile(pats.openCloseTag, re.DOTALL).finditer(item, me):
             d = AttrDict(r.groupdict())
             if d.beg:
                 tag_stack.append(d.beg)
@@ -169,7 +210,21 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                     break;
         return me, ce
 
-    ret_lst = []
+    ret_lst, ret_vals = [], []
+    try:
+        separate = ret.separate
+        skip_missing = ret.skip_missing
+    except AttributeError:
+        separate = False
+        skip_missing = True
+
+    # return list of values if ret is list  [a] -> [x]
+    # else return values                    a   -> x
+    if isinstance(ret, (list, tuple)):
+        retlstadd = ret_lst.append
+    else:
+        retlstadd, ret = ret_lst.extend, [ ret ]
+
     for item in html:
         item = _tostr(item)
         if exclude_comments:
@@ -206,42 +261,70 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
             pass
         if not lst:
             continue
+        #print('LST', lst)
 
-        if ret is True:
-            ret = DomMatch
-        if isclass(ret) and issubclass(ret, DomMatch):
-            # Get full node (content and all attributes)
-            lst2 = []
-            for match, (ms, me) in lst:
-                attrs = dict((attr.lower(), a or b or c) \
-                    for attr, a, b, c in re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats), match, re.DOTALL))
-                cs, ce = find_closing(name, match, item, ms, me)
-                lst2.append(ret(attrs, item[cs:ce]))
-            lst = lst2
-        elif ret:
-            # Get attribute value
-            lst2 = []
-            pat = r'''<(?:{tag}){anyAttr}?\s+(?:{attr}){askAttrVal}{anyAttr}\s*/?>'''
-            for match, (ms, me) in lst:
-                if isinstance(ret, list):
-                    # Many attributes at once
-                    lst2.append(list(
-                        a or b or c for rt in ret for a, b, c in re.findall(pat.format(tag=name, attr=rt, **pats), match, re.DOTALL)
-                    ))
-                else:
-                    # Single attribute
-                    r = re.search(pat.format(tag=name, attr=ret, **pats), match, re.DOTALL)
-                    if r:
-                        lst2 += r.group(1) or r.group(2) or r.group(3)
-            lst = lst2
-        else:
-            # Element content (innerHTML)
-            lst2 = []
-            for match, (ms, me) in lst:
-                cs, ce = find_closing(name, match, item, ms, me)
-                lst2.append(item[cs:ce])
-            lst = lst2
-        ret_lst += lst
+        lst2 = []
+        def parse_node(match, ms, me):
+            attrs = dict((attr.lower(), a or b or c) \
+                for attr, a, b, c in \
+                re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats), match, re.DOTALL))
+            cs, ce = find_closing(name, match, item, ms, me)
+            #print('node', match, DomMatch(attrs, item[cs:ce]))
+            return DomMatch(attrs, item[cs:ce])
+
+        for match, (ms, me) in lst:
+            #print('MATCH', match, ms, me)
+            node = None
+            lst2.clear()
+            for ritem in ret:
+                if ritem is True:
+                    ritem = Result.Node
+                elif ritem is False or ritem is None:
+                    ritem = Result.Content
+                elif isclass(ritem) and issubclass(ritem, DomMatch):
+                    ritem = Result.Node
+
+                if ritem == Result.Content:
+                    # Element content (innerHTML)
+                    cs, ce = find_closing(name, match, item, ms, me)
+                    lst2.append(item[cs:ce])
+                elif ritem == Result.Text:
+                    # Only text (remove all tags from content)
+                    cs, ce = find_closing(name, match, item, ms, me)
+                    lst2.append(remove_tags_re.sub('', item[cs:ce]))
+                elif ritem == Result.Node:
+                    # Get full node (content and all attributes)
+                    if node is None:
+                        node = parse_node(match, ms, me)
+                    lst2.append(node)
+                else:   # attribute
+                    if node is None:
+                        node = parse_node(match, ms, me)
+                    try:
+                        lst2.append(node.attrs[ritem])
+                    except KeyError:
+                        if not skip_missing:
+                            lst2.append(None)
+            #ret_lst += lst2
+            retlstadd(lst2)
+
+        #elif ret:
+        #    # Get attribute value
+        #    lst2 = []
+        #    pat = r'''<(?:{tag}){anyAttr}?\s+(?:{attr}){askAttrVal}{anyAttr}\s*/?>'''
+        #    for match, (ms, me) in lst:
+        #        if isinstance(ret, list):
+        #            # Many attributes at once
+        #            lst2.append(list(
+        #                a or b or c for rt in ret for a, b, c in
+        #                re.findall(pat.format(tag=name, attr=rt, **pats), match, re.DOTALL)
+        #            ))
+        #        else:
+        #            # Single attribute
+        #            r = re.search(pat.format(tag=name, attr=ret, **pats), match, re.DOTALL)
+        #            if r:
+        #                lst2 += r.group(1) or r.group(2) or r.group(3)
+        #    lst = lst2
 
     return ret_lst
 
@@ -253,13 +336,15 @@ def dom_select(html, selectors):
     """
     Find data in HTML in simple quite fast way in pure Python.
     """
-    print(' --- search for "{}"'.format(selectors))
+    #print(' --- search for "{}"'.format(selectors))
     ret = []
     if isinstance(selectors, basestring):
         ret = None
         selectors = [ selectors ]
     rl_re = re.compile(r'''xxx''')   # TODO:  split elector by ","
+    # find single tag (with params)
     rs_re = re.compile(r'''(?P<tag>\w+)(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
+    # find params (id, class, attr and pseudo)
     ra_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|::(?P<pseudo>\w+)(?:\((?P<psarg>\w+(?:,\s*\w+)*)\))?''')
     attrSelectors = {
         None:  lambda v: True,
@@ -273,7 +358,7 @@ def dom_select(html, selectors):
     for selalt in selectors:
         res = []  # All matches for single selector
         for sel in selalt.split(','):  # TODO:  omit ',' in quotas
-            part = html
+            part, out = html, []
             for rs in rs_re.finditer(sel):
                 tag = rs.groupdict()['tag'] or u''
                 ats = rs.groupdict()['attr1'] or rs.groupdict()['attr2'] or u''
@@ -299,13 +384,21 @@ def dom_select(html, selectors):
                         pseudo = ra.groupdict()['pseudo']
                         psarg = ra.groupdict()['psarg'] or u''
                         if pseudo == 'attr':
-                            if ',' in psarg:
-                                retat += list(a.strip() for a in psarg.split(','))
-                            else:
-                                retat = psarg
+                            retat += list(a.strip() for a in psarg.split(','))
+                        elif pseudo == 'content':
+                            retat.append()
+                        elif pseudo == 'node':
+                            retat.append()
+                        elif pseudo == 'text':
+                            retat.append()
+                        else:
+                            raise KeyError('Pseudo-class "{op}" is not supported'.format(op=pseudo))
                     #print('RA', ra.groupdict(), attrs)
                 #print(' -RS', attrs)
-                part = dom_search(part, tag, dict(attrs), retat or False)
+                if retat:
+                    part = dom_search(part, tag, dict(attrs), retat)
+                else:
+                    out = part = dom_search(part, tag, dict(attrs))
             #ret += dom_search(html, sel)
             res += part
         if ret == None:
@@ -404,16 +497,25 @@ if __name__ == '__main__':
     </div>
     '''
 
-    sA, sAA = '<a>A</a>', '<a>A</a><a>A</a>'
-    sAx, sAAx, sAxAx = '<a x="1">A</a>', '<a>A</a><a x="1">A</a>', '<a x="1">A</a><a x="1">A</a>'
-    mA, mAA = DomMatch({}, sA), DomMatch({}, sAA)
-    mAx, mAAx, mAxAx = DomMatch({}, sAx), DomMatch({}, sAAx), DomMatch({}, sAxAx)
-    A, Ax = DomMatch({}, 'A'), DomMatch({'x': '1'}, 'A')
-    print(dom_search([mAx], 'a', ret=DomMatch))
-    exit()
+    #exit()
 
     #test_dom_search(html)
     print(' - - - - -')
-    test_dom_select(html)
+    #test_dom_select(html)
+    #print(dom_select('<a>A1</a><a>A2</a><b>B1</b><b>B2</b>', 'a'))
+    #print(dom_select('<a>A1</a><a>A2</a><b>B1</b><b>B2</b>', ['a', 'b']))
+    #print(dom_select('<a x=1><b y=2>B</b></a>', 'a::attr(x) b::attr(y)'))
+    #print(dom_search('<a x=1><b y=2 z=3>B</b></a>', 'a', ret=False))
+    #print(dom_search('<a x=1><b y=2 z=3>B</b></a>', 'a', ret='x'))
+    #print(dom_search('<a x=1><b y=2 z=3>B</b></a>', 'a', ret=['x']))
+    #print(dom_search('<a x=1><b y=2 z=3>B</b></a>', 'b', ret=['y', 'z']))
+
+    #print(dom_search('<a x=11>A11<b y=12 z=13>B1</b>A12</a><a x=21>A21<b y=22 z=23>B2</b>A22</a>',
+    #                 'a',
+    #                 ret=ExtraResult(['x', 'y', 'z', Result.Text])
+    #                 #ret='x'
+    #                 ))
+
+    print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret='x'))
 
 
