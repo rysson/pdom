@@ -70,7 +70,6 @@ remove_tags_re = re.compile(pats.nodeTag)
 
 class DomMatch(namedtuple('DomMatch', ['attrs', 'content'])):
     __slots__ = ()
-    #__slots__ = (match)
 
     @property
     def text(self):
@@ -142,6 +141,52 @@ def _tostr(s):
 
 
 
+def find_closing(name, match, item, ms, me):
+    r"""
+    Helper. Find closing tag for given `name` tag.
+
+    Parameters
+    ----------
+    name : str
+        Tag name (name or regex pattern, can be e.g. '.*').
+    match : str
+        Found full tag string (tag with attributes).
+    item : str
+        Original HTML string or HTML part string.
+    ms : int
+        Offset in `item` for `match`.
+    me : int
+        Offset in `item` for `match` end.
+
+    Returns
+    -------
+    int, int
+        Content begin and content end offsets in `item`.
+    """
+    if match.endswith('/>'):   # <tag/> has no content
+        return me, me
+    # Recover tag name (important for "*")
+    r = re.match(pats.getTag, match, re.DOTALL)
+    tag = r.group(1) if r else name
+    # find closing tag
+    ce = me
+    tag_stack = [ tag ]
+    for r in re.compile(pats.openCloseTag, re.DOTALL).finditer(item, me):
+        d = AttrDict(r.groupdict())
+        if d.beg:
+            tag_stack.append(d.beg)
+        elif d.end:
+            while tag_stack:
+                tag_stack, last = tag_stack[:-1], tag_stack[-1]
+                if last == d.end:
+                    break
+            if not tag_stack:
+                ce = r.start()
+                break;
+    return me, ce
+
+
+
 def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     """
     Simple parse HTML/XML to get tags.
@@ -188,29 +233,6 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         name = pats.anyTag   # any tag
 
     class BreakAtrrloop(Exception): pass
-
-    def find_closing(name, match, item, ms, me):
-        if match.endswith('/>'):   # <tag/> has no content
-            return me, me
-        # Recover tag name (important for "*")
-        r = re.match(pats.getTag, match, re.DOTALL)
-        tag = r.group(1) if r else name
-        # find closing tag
-        ce = me
-        tag_stack = [ tag ]
-        for r in re.compile(pats.openCloseTag, re.DOTALL).finditer(item, me):
-            d = AttrDict(r.groupdict())
-            if d.beg:
-                tag_stack.append(d.beg)
-            elif d.end:
-                while tag_stack:
-                    tag_stack, last = tag_stack[:-1], tag_stack[-1]
-                    if last == d.end:
-                        break
-                if not tag_stack:
-                    ce = r.start()
-                    break;
-        return me, ce
 
     ret_lst, ret_nodes = [], []
     try:
@@ -273,10 +295,19 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
             #print('node', match, DomMatch(attrs, item[cs:ce]))
             return DomMatch(attrs, item[cs:ce])
 
+        def parse_node_attr(match):
+            return dict((attr.lower(), a or b or c) \
+                for attr, a, b, c in \
+                re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats), match, re.DOTALL))
+
+        def parse_node_content(item, ms, me):
+            cs, ce = find_closing(name, match, item, ms, me)
+            return item[cs:ce]
+
         for match, (ms, me) in lst:
             #print('MATCH', match, ms, me)
             lst2 = []
-            node = None
+            node_attrs = node_content = None
             if separate:
                 node = parse_node(match, ms, me)
                 ret_nodes.append(node)
@@ -291,22 +322,26 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                 #print('  -> ritem', ritem)
                 if ritem == Result.Content:
                     # Element content (innerHTML)
-                    cs, ce = find_closing(name, match, item, ms, me)
-                    lst2.append(item[cs:ce])
+                    if node_content is None:
+                        node_content = parse_node_content(item, ms, me)
+                    lst2.append(node_content)
                 elif ritem == Result.Text:
                     # Only text (remove all tags from content)
-                    cs, ce = find_closing(name, match, item, ms, me)
-                    lst2.append(remove_tags_re.sub('', item[cs:ce]))
+                    if node_content is None:
+                        node_content = parse_node_content(item, ms, me)
+                    lst2.append(remove_tags_re.sub('', node_content))
                 elif ritem == Result.Node:
                     # Get full node (content and all attributes)
-                    if node is None:
-                        node = parse_node(match, ms, me)
-                    lst2.append(node)
+                    if node_attrs is None:
+                        node_attrs = parse_node_attr(match)
+                    if node_content is None:
+                        node_content = parse_node_content(item, ms, me)
+                    lst2.append(DomMatch(node_attrs, node_content))
                 else:   # attribute
-                    if node is None:
-                        node = parse_node(match, ms, me)
+                    if node_attrs is None:
+                        node_attrs = parse_node_attr(match)
                     try:
-                        lst2.append(node.attrs[ritem])
+                        lst2.append(node_attrs[ritem])
                     except KeyError:
                         if not skip_missing:
                             lst2.append(None)
