@@ -14,7 +14,7 @@ from ..dom import DomMatch   # for test only
 
 
 
-class Testdom_search(TestCase):
+class TestDomSearch(TestCase):
 
     def test_input(self):
         with self.subTest('Unicode      (Py2: unicode, Py3: str)'):
@@ -226,7 +226,7 @@ class Testdom_search(TestCase):
 
 
 
-class Testdom_search_Extra(TestCase):
+class TestDomSearch_Extra(TestCase):
 
     def test_attr_bool(self):
         with self.subTest('A[x=True]'):
@@ -315,7 +315,7 @@ class Testdom_search_Extra(TestCase):
 
 
 
-class Testdom_search_AttrFunc(TestCase):
+class TestDomSearch_AttrFunc(TestCase):
 
     def test_attr_func_aWord_1(self):
         with self.subTest('One aWord() – empty'):
@@ -476,7 +476,7 @@ class Testdom_search_AttrFunc(TestCase):
 
 
 
-class Testdom_search_DomMatch(TestCase):
+class TestDomSearch_DomMatch(TestCase):
     # DomMach result, almost compatibile with Cherry dom_parse()
 
     def test_dommatch_base(self):
