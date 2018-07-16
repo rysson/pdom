@@ -1,18 +1,22 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, division, unicode_literals, print_function
-try:
-    from future import standard_library
-    from future.builtins import *
-    standard_library.install_aliases()
-except ImportError:
-    print('WARNING: no furure module')
+#try:
+#    from future import standard_library
+#    from future.builtins import *
+#    standard_library.install_aliases()
+#except ImportError:
+#    print('WARNING: no furure module')
 
 import sys
 import re
 from collections import defaultdict
 from collections import namedtuple
 from inspect import isclass
+try:
+    from requests import Response
+except ImportError:
+    Response = None
 
 
 if sys.version_info < (3,0):
@@ -75,7 +79,7 @@ def _tostr(s):
 
 
 
-def parseDOM(html, name=None, attrs=None, ret=None, exclude_comments=False):
+def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     """
     Simple parse HTML/XML to get tags.
 
@@ -105,7 +109,9 @@ def parseDOM(html, name=None, attrs=None, ret=None, exclude_comments=False):
     # Idea is taken form parseDOM() by Tobias and Henrik:
     #   Copyright (C) 2010-2011 Tobias Ussing And Henrik Mosgaard Jensen
 
-    #print('parseDOM: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
+    #print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
+    if Response and isinstance(html, Response):
+        html = html.text
     if isinstance(html, DomMatch) or not isinstance(html, (list, tuple)):
         html = [ html ]
 
@@ -241,12 +247,9 @@ def parseDOM(html, name=None, attrs=None, ret=None, exclude_comments=False):
 
 
 
-def parse_dom(html, name='', attrs=None, req=False, exclude_comments=False):
-    return parseDOM(html, name, attrs, ret=DomMatch)
 
 
-
-def findInHtml(html, selectors):
+def dom_select(html, selectors):
     """
     Find data in HTML in simple quite fast way in pure Python.
     """
@@ -302,8 +305,8 @@ def findInHtml(html, selectors):
                                 retat = psarg
                     #print('RA', ra.groupdict(), attrs)
                 #print(' -RS', attrs)
-                part = parseDOM(part, tag, dict(attrs), retat or False)
-            #ret += parseDOM(html, sel)
+                part = dom_search(part, tag, dict(attrs), retat or False)
+            #ret += dom_search(html, sel)
             res += part
         if ret == None:
             ret = res
@@ -312,36 +315,52 @@ def findInHtml(html, selectors):
     return ret
 
 
-def test_findInHtml(html):
-    #print(findInHtml(html, 'p'))
-    #print(findInHtml(html, 'p b[u]'))
-    #print(findInHtml(html, 'p[q=2] b[a="x y"][b="z"][e]'))
-    #print(findInHtml(html, '[q=2].stare#z #a.nowe b.inne[a~="x y"][b="z"].nie'))
-    #findInHtml(html, 'p[a=1]')
-    print(findInHtml(html, 'p[a~="22"]'))
-    print(findInHtml(html, 'p[a~="22"]::attr(b), div[a~="22"]::attr(c)'))
-    print(findInHtml(html, 'p[a*="2 3"]'))
-    print(findInHtml(html, 'p[a="2 3"]'))
-    print(findInHtml(html, 'p[a="1 2 3"]'))
-    print(findInHtml(html, 'div[c=5]::attr(d)'))
-    print(findInHtml(html, 'div[c=5]'))
+# --- Old (alien) APIs ---
 
-def test_parseDOM(html):
-    r = parseDOM(html, 'ul', {'class': 'a(?: c)?'})
-    print(r)
-    r1 = parseDOM(r, 'a')
-    print(r1)
-    r2 = parseDOM(r, 'a', ret='href')
-    print(r2)
-    print(list(zip(r1, r2)))
-    print(parseDOM(html, 'p', {'a': '1', 'b': '2'}))
-    print(parseDOM(html, 'p', {'a': [aWord('1'), aWord('2')]}))
-    print(parseDOM(html, 'p', {'a': [aWord('1'), aContains('2')]}))
-    print(parseDOM(html, 'p', {'a': aStarts('2')}))
-    print(parseDOM(html, 'p', {'a': aEnds('2')}))
-    print(parseDOM(html, 'p', {'a': aWordStarts('2')}))
+def parseDOM(html, name=None, attrs=None, ret=None, exclude_comments=False):
+    return dom_search(html, name, attrs, ret)
+
+def parse_dom(html, name='', attrs=None, req=False, exclude_comments=False):
+    return dom_search(html, name, attrs, ret=DomMatch)
+
+
+# --- Module methods ---
+
+search = dom_search
+select = dom_select
+
+
 
 if __name__ == '__main__':
+    def test_dom_select(html):
+        #print(dom_select(html, 'p'))
+        #print(dom_select(html, 'p b[u]'))
+        #print(dom_select(html, 'p[q=2] b[a="x y"][b="z"][e]'))
+        #print(dom_select(html, '[q=2].stare#z #a.nowe b.inne[a~="x y"][b="z"].nie'))
+        #dom_select(html, 'p[a=1]')
+        print(dom_select(html, 'p[a~="22"]'))
+        print(dom_select(html, 'p[a~="22"]::attr(b), div[a~="22"]::attr(c)'))
+        print(dom_select(html, 'p[a*="2 3"]'))
+        print(dom_select(html, 'p[a="2 3"]'))
+        print(dom_select(html, 'p[a="1 2 3"]'))
+        print(dom_select(html, 'div[c=5]::attr(d)'))
+        print(dom_select(html, 'div[c=5]'))
+
+    def test_dom_search(html):
+        r = dom_search(html, 'ul', {'class': 'a(?: c)?'})
+        print(r)
+        r1 = dom_search(r, 'a')
+        print(r1)
+        r2 = dom_search(r, 'a', ret='href')
+        print(r2)
+        print(list(zip(r1, r2)))
+        print(dom_search(html, 'p', {'a': '1', 'b': '2'}))
+        print(dom_search(html, 'p', {'a': [aWord('1'), aWord('2')]}))
+        print(dom_search(html, 'p', {'a': [aWord('1'), aContains('2')]}))
+        print(dom_search(html, 'p', {'a': aStarts('2')}))
+        print(dom_search(html, 'p', {'a': aEnds('2')}))
+        print(dom_search(html, 'p', {'a': aWordStarts('2')}))
+
     html = u'''
     <ul class="a", data="vvv">
     <a href="a/a">Aa</a> qwe aaa
@@ -390,11 +409,11 @@ if __name__ == '__main__':
     mA, mAA = DomMatch({}, sA), DomMatch({}, sAA)
     mAx, mAAx, mAxAx = DomMatch({}, sAx), DomMatch({}, sAAx), DomMatch({}, sAxAx)
     A, Ax = DomMatch({}, 'A'), DomMatch({'x': '1'}, 'A')
-    print(parseDOM([mAx], 'a', ret=DomMatch))
+    print(dom_search([mAx], 'a', ret=DomMatch))
     exit()
 
-    #test_parseDOM(html)
+    #test_dom_search(html)
     print(' - - - - -')
-    test_findInHtml(html)
+    test_dom_select(html)
 
 
