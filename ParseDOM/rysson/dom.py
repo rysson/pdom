@@ -70,6 +70,8 @@ remove_tags_re = re.compile(pats.nodeTag)
 
 class DomMatch(namedtuple('DomMatch', ['attrs', 'content'])):
     __slots__ = ()
+    #__slots__ = (match)
+
     @property
     def text(self):
         return remove_tags_re.sub('', self.content)
@@ -94,7 +96,7 @@ class ExtraResult(list):
     separate : bool, default False
         If true dom_search() return content and values separated.
     """
-    def __init__(self, vals, separate=False, skip_missing=False):
+    def __init__(self, vals, separate=False, skip_missing=True):
         super(ExtraResult, self).__init__(vals)
         self.separate = separate
         self.skip_missing = skip_missing
@@ -210,7 +212,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                     break;
         return me, ce
 
-    ret_lst, ret_vals = [], []
+    ret_lst, ret_nodes = [], []
     try:
         separate = ret.separate
         skip_missing = ret.skip_missing
@@ -263,7 +265,6 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
             continue
         #print('LST', lst)
 
-        lst2 = []
         def parse_node(match, ms, me):
             attrs = dict((attr.lower(), a or b or c) \
                 for attr, a, b, c in \
@@ -274,8 +275,11 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
 
         for match, (ms, me) in lst:
             #print('MATCH', match, ms, me)
+            lst2 = []
             node = None
-            lst2.clear()
+            if separate:
+                node = parse_node(match, ms, me)
+                ret_nodes.append(node)
             for ritem in ret:
                 if ritem is True:
                     ritem = Result.Node
@@ -284,6 +288,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                 elif isclass(ritem) and issubclass(ritem, DomMatch):
                     ritem = Result.Node
 
+                #print('  -> ritem', ritem)
                 if ritem == Result.Content:
                     # Element content (innerHTML)
                     cs, ce = find_closing(name, match, item, ms, me)
@@ -305,27 +310,11 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                     except KeyError:
                         if not skip_missing:
                             lst2.append(None)
-            #ret_lst += lst2
-            retlstadd(lst2)
+            if lst2 or not skip_missing:
+                retlstadd(lst2)
 
-        #elif ret:
-        #    # Get attribute value
-        #    lst2 = []
-        #    pat = r'''<(?:{tag}){anyAttr}?\s+(?:{attr}){askAttrVal}{anyAttr}\s*/?>'''
-        #    for match, (ms, me) in lst:
-        #        if isinstance(ret, list):
-        #            # Many attributes at once
-        #            lst2.append(list(
-        #                a or b or c for rt in ret for a, b, c in
-        #                re.findall(pat.format(tag=name, attr=rt, **pats), match, re.DOTALL)
-        #            ))
-        #        else:
-        #            # Single attribute
-        #            r = re.search(pat.format(tag=name, attr=ret, **pats), match, re.DOTALL)
-        #            if r:
-        #                lst2 += r.group(1) or r.group(2) or r.group(3)
-        #    lst = lst2
-
+    if separate:
+        return ret_lst, ret_nodes
     return ret_lst
 
 
@@ -386,11 +375,11 @@ def dom_select(html, selectors):
                         if pseudo == 'attr':
                             retat += list(a.strip() for a in psarg.split(','))
                         elif pseudo == 'content':
-                            retat.append()
+                            retat.append(Result.Content)
                         elif pseudo == 'node':
-                            retat.append()
+                            retat.append(Result.Node)
                         elif pseudo == 'text':
-                            retat.append()
+                            retat.append(Result.Text)
                         else:
                             raise KeyError('Pseudo-class "{op}" is not supported'.format(op=pseudo))
                     #print('RA', ra.groupdict(), attrs)
@@ -517,5 +506,9 @@ if __name__ == '__main__':
     #                 ))
 
     print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret='x'))
+    print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret=['x']))
+    print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret=ExtraResult(['x'], separate=True)))
+    #print(dom_select('<a x=11>A11<b y=12 z=13>B1</b>A12</a><a x=21>A21<b y=22 z=23>B2</b>A22</a>',
+    #                 'a::attr(x)::text()'))
 
 
