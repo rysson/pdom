@@ -26,6 +26,15 @@ else:
     from enum import Enum
 
 
+class NoResult(list):
+    def __init__(self):
+        super(NoResult, self).__init__()
+    def append(self, v):
+        raise NotImplementedError('NoResult is readonly')
+    def extend(self, v):
+        raise NotImplementedError('NoResult is readonly')
+    # TODO: all methods
+
 
 class AttrDict(dict):
     """dict() + attribute access"""
@@ -77,11 +86,12 @@ class DomMatch(namedtuple('DomMatch', ['attrs', 'content'])):
 
 
 class Result(Enum):
-    Content = 0
-    Node = 1
-    Text = 2
+    NoResult = 0
+    Content = 1
+    Node = 2
+    Text = 3
     InnerHTML = Content
-    OuterHTML = 3
+    OuterHTML = 4
     DomMatch = 91
 
 
@@ -458,6 +468,9 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                 elif ritem == Result.DomMatch:
                     # Get old node (content and all attributes)
                     lst2.append(DomMatch(node.attrs, node.content))
+                elif ritem == Result.NoResult:
+                    # Match tag, but return nothing
+                    lst2.append(NoResult())
                 else:   # attribute
                     try:
                         lst2.append(node.attrs[ritem])
@@ -537,8 +550,12 @@ def dom_select(html, selectors):
                             retat.append(Result.Text)
                         elif pseudo == 'DomMatch':
                             retat.append(Result.DomMatch)
+                        elif pseudo == 'none':
+                            retat.append(Result.NoResult)
                         else:
                             raise KeyError('Pseudo-class "{op}" is not supported'.format(op=pseudo))
+                        if len(retat) > 1 and Result.NoResult in retat:
+                            raise ValueError('::none can NOT be combined with any another modifier')
                     #print('RA', ra.groupdict(), attrs)
                 #print(' -RS', attrs)
                 if retat:
@@ -546,7 +563,10 @@ def dom_select(html, selectors):
                                             ResultParam(retat, missing=MissingAttr.NoSkip, separate=True))
                     if not tree:
                         break
-                    out_stack.append(part)
+                    if retat == [Result.NoResult]:
+                        part = None
+                    else:
+                        out_stack.append(part)
                     tree_last = True
                     #print('PART', list(zip(part, tree)))
                     #res += list(zip(res, part))
@@ -557,8 +577,8 @@ def dom_select(html, selectors):
                 print('STACK', out_stack)
             print('SelPART', part)
             print('SelSTACK.1', out_stack)
-            if len(out_stack) > 1 or (out_stack and not tree_last):
-                if tree is None:
+            if part is None or len(out_stack) > 1 or (out_stack and not tree_last):
+                if tree is None and part:
                     out_stack.append(part)
                 print('SelSTACK.2', out_stack)
                 print('SelSTACK.3', list(zip(*out_stack)))
@@ -686,11 +706,13 @@ if __name__ == '__main__':
     #print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret=ResultParam(['x'], separate=True)))
     out = dom_select([
         '<a x=11>A11<b y=12 z=13>B1</b>A12</a><a x=21>A21<b y=22 z=23>B2</b>A22</a>',
-        '<a x=31>A31<b y=32 z=33>B1</b>A32</a>', ],
+        '<a x=31>A31<b y=32 z=33>B1</b>A32</a><a x=31>A41<c y=42 z=43>B1</c>A42</a>', ],
         'a::attr(x)::text() b::attr(y)'
         #'a b::attr(y)'
         #'a b'
         #'a::attr(x) b'
+        #'a::attr(x)::text() b::none'
+        #'b::none::none'
     )
     print(out)
     #for b, in out:
