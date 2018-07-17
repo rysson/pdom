@@ -82,23 +82,36 @@ class Result(Enum):
     Text = 2
     InnerHTML = Content
     OuterHTML = 3
+    DomMatch = 91
 
 
-class ExtraResult(list):
+class MissingAttr(Enum):
+    #: Do not skip any attribures, return None if missing.
+    NoSkip = 0
+    #: Skip only if attribute was direct requested (e.g. for 'a')
+    #: else return None (e.g. for ['a']).
+    SkipIfDirect = 1
+    #: Skipp all missing attributes.
+    SkipAll = 2
+
+
+class ResultParam(object):
     r"""
     Helper to tell dom_search() more details about result.
 
     Parameters
     ----------
-    vals : list
-        List of object (e.g. attributes) in result.
+    args : str or list of str
+        Object or list of object (e.g. attributes) in result.
     separate : bool, default False
         If true dom_search() return content and values separated.
+    missing
+        How to handle missing attributes, see MissingAttr.
     """
-    def __init__(self, vals, separate=False, skip_missing=True):
-        super(ExtraResult, self).__init__(vals)
+    def __init__(self, args, separate=False, missing=MissingAttr.SkipIfDirect):
+        self.args = args
         self.separate = separate
-        self.skip_missing = skip_missing
+        self.missing = missing
 
 
 def aWord(s):
@@ -119,11 +132,13 @@ def aEnds(s):
 
 def aContains(s):
     '''Realize [attribute*=value] selector'''
-    return u'''[^'"]*?{}[^'"]*?'''.format(s)
+    return '''[^'"]*?{}[^'"]*?'''.format(s)
 
 
 def _tostr(s):
     """Change bytes to string (also in list)"""
+    if isinstance(s, Node):
+        s = s.content
     if isinstance(s, DomMatch):
         s = s.content
     elif isinstance(s, (list, tuple)):
@@ -139,6 +154,145 @@ def _tostr(s):
         s = str(s)
     return s
 
+
+def find_node(name, match, item, ms, me):
+    r"""
+    Helper. Find closing tag for given `name` tag.
+
+    Parameters
+    ----------
+    name : str
+        Tag name (name or regex pattern, can be e.g. '.*').
+    match : str
+        Found full tag string (tag with attributes).
+    item : str
+        Original HTML string or HTML part string.
+    ms : int
+        Offset in `item` for `match`.
+    me : int
+        Offset in `item` for `match` end.
+
+    Returns
+    -------
+    ts : int
+        Tag start ('<') index in `item`.
+    cs : int
+        Content start index in `item`.
+        It's also tag end (one characteter after '>') index.
+    ce : int
+        Content end index in `item`.
+        It's also closing tag start ('</') index.
+    te : int
+        Closing tag end index (one characteter after closing '>') in `item`.
+
+    Function returns index of parsed node:
+
+        <tag attr="val">content</tag>
+        ↑               ↑      ↑     ↑
+        ts              cs     ce    te
+
+    item[ts:cs] -- tag
+    item[cs:ce] -- content, innerHTML
+    item[ce:te] -- closgin tag
+    item[ts:te] -- whole tag, outerHTML
+    """
+    # Recover tag name (important for "*")
+    r = re.match(pats.getTag, match, re.DOTALL)
+    tag = r.group(1) if r else name or '[\w-]+'
+    # <tag/> has no content
+    if match.endswith('/>'):
+        return tag, ms, me, me, me
+    # find closing tag
+    ce = ee = me
+    tag_stack = [ tag ]
+    for r in re.compile(pats.openCloseTag, re.DOTALL).finditer(item, me):
+        d = AttrDict(r.groupdict())
+        if d.beg:
+            tag_stack.append(d.beg)
+        elif d.end:
+            while tag_stack:
+                tag_stack, last = tag_stack[:-1], tag_stack[-1]
+                if last == d.end:
+                    break
+            if not tag_stack:
+                ce, ee = r.start(), r.end()
+                break;
+    return tag, ms, me, ce, ee
+
+
+class Node(object):
+    r"""
+    XML/HTML simplified node. Without structure.
+
+    Parameters
+    ----------
+    tag : str
+        Tag string (e.g. '<tag attr="val">'.
+    item : str or None
+        Part of HTML string containg this node.
+    """
+
+    __slots__ = ('ts', 'cs', 'ce', 'te',
+                 'item', 'name', 'tag',
+                 '__attrs', '__content')
+
+    def __init__(self, tag, item=None, tagindex=None):
+        self.ts = self.cs = self.ce = self.te = 0
+        self.tag = tag
+        self.item = item or ''
+        self.name = ''
+        self.__attrs = None
+        if tagindex is not None:
+            self.ts, self.cs = tagindex
+
+    def preparse(self, item=None, tagindex=None, tagname=None):
+        r"""
+        Preparsing node. Find closing tag for given `name` tag.
+
+        item : str
+            Original HTML string or HTML part string.
+        ms : int
+            Tag ('<') index in `item`.
+        me : int
+            End of tag (one characteter after '>') index in `item`.
+        tagname : str or None
+            Tag name (name or regex pattern, can be e.g. '.*').
+
+        See find_node().
+        """
+        ms, me = (self.ts, self.cs) if tagindex is None else tagindex
+        if item is None:
+            item = self.item
+        self.name, self.ts, self.cs, self.ce, self.te = find_node(tagname, self.tag, item, ms, me)
+        return self
+
+    @property
+    def attrs(self):
+        r"""Returns parsed attributes."""
+        if self.__attrs is None:
+            self.__attrs =  dict((attr.lower(), a or b or c) \
+                                 for attr, a, b, c in \
+                                 re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats),
+                                            self.tag, re.DOTALL))
+        return self.__attrs
+
+    @property
+    def content(self):
+        r"""Returns tag content (innerHTML)."""
+        if not self.te:
+            self.preparse()
+        return self.item[self.cs : self.ce]
+
+    @property
+    def text(self):
+        r"""Returns tag text only."""
+        return remove_tags_re.sub('', self.content)
+
+    def __str__(self):
+        return self.content
+
+    def __repr__(self):
+        return 'Node({attrs}, {content!r})'.format(attrs=self.attrs, content=self.content)
 
 
 def find_closing(name, match, item, ms, me):
@@ -162,29 +316,10 @@ def find_closing(name, match, item, ms, me):
     -------
     int, int
         Content begin and content end offsets in `item`.
-    """
-    if match.endswith('/>'):   # <tag/> has no content
-        return me, me
-    # Recover tag name (important for "*")
-    r = re.match(pats.getTag, match, re.DOTALL)
-    tag = r.group(1) if r else name
-    # find closing tag
-    ce = me
-    tag_stack = [ tag ]
-    for r in re.compile(pats.openCloseTag, re.DOTALL).finditer(item, me):
-        d = AttrDict(r.groupdict())
-        if d.beg:
-            tag_stack.append(d.beg)
-        elif d.end:
-            while tag_stack:
-                tag_stack, last = tag_stack[:-1], tag_stack[-1]
-                if last == d.end:
-                    break
-            if not tag_stack:
-                ce = r.start()
-                break;
-    return me, ce
 
+    """
+    tag, ts, cs, ce, te = find_node(name, match, item, ms, me)
+    return cs, ce
 
 
 def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
@@ -196,33 +331,34 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
 
     Paramters
     ---------
-    html : str or bytes or DomMatch or list of str or list of bytes or list of DomMatch
+    html : str or bytes or Node or DomMatch or list of str or list of bytes or list of Node
         HTML/XML source. Directly or list of HTML/XML parts.
     name : str or bytes or None
         Tag name ot None if you want to match any tag. Can be regex string (e.g. "div|p").
     attr : dict or None
         Attributes to match or None if attributes has no matter. See below.
-    ret : str or list of str or DomMatch or False or None
-        What to return. Tag content if False or None, DomMatch nodes or attributes.
+    ret : str or list of str or Node or DomMatch or False or None
+        What to return. Tag content if False or None, Node or DomMatch nodes or attributes.
 
     Returns
     -------
     list of str
         List of matched tags content (innerHTML) or matched attribute values if ret is used.
+    list of Node
+        List of mached nodes (attribute and content tuples) if ret is Node or Result.Node.
     list of DomMatch
-        List of DomMatch mached nodes (attribute and content tuples) if ret is DomMatch.
+        List of DomMatch mached nodes (attribute and content tuples) if ret is DomMatch or Result.DomMatch.
 
     """
     # Author: Robert Kalinowski <robert.kalinowski@sharkbits.com>
-    # Idea is taken form parseDOM() by Tobias and Henrik:
-    #   Copyright (C) 2010-2011 Tobias Ussing And Henrik Mosgaard Jensen
+    #   Copyright (C) 2018 Robert Kalinowski
+    # Idea is taken form parseDOM() by Tobias Ussing and Henrik Jensen.
 
     #print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
     if Response and isinstance(html, Response):
         html = html.text
     if isinstance(html, DomMatch) or not isinstance(html, (list, tuple)):
         html = [ html ]
-
 
     if exclude_comments:
         # TODO: make it good, it's to simple, should ommit quotation in attribute
@@ -234,20 +370,34 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
 
     class BreakAtrrloop(Exception): pass
 
+    # convert retrun item type to enum
+    rtype2enum = {
+        True:     Result.Node,
+        False:    Result.Content,
+        None:     Result.Content,
+        Node:     Result.Node,
+        DomMatch: Result.DomMatch,
+    }
+    #elif isclass(ritem) and issubclass(ritem, Node):
+    #    ritem = Result.Node
+
     ret_lst, ret_nodes = [], []
     try:
         separate = ret.separate
-        skip_missing = ret.skip_missing
+        skip_missing = ret.missing
+        ret = ret.args
     except AttributeError:
         separate = False
-        skip_missing = True
+        skip_missing = MissingAttr.SkipIfDirect
 
     # return list of values if ret is list  [a] -> [x]
     # else return values                    a   -> x
     if isinstance(ret, (list, tuple)):
         retlstadd = ret_lst.append
+        skip_missing = skip_missing == MissingAttr.SkipAll
     else:
         retlstadd, ret = ret_lst.extend, [ ret ]
+        skip_missing = skip_missing != MissingAttr.NoSkip
 
     for item in html:
         item = _tostr(item)
@@ -287,61 +437,30 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
             continue
         #print('LST', lst)
 
-        def parse_node(match, ms, me):
-            attrs = dict((attr.lower(), a or b or c) \
-                for attr, a, b, c in \
-                re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats), match, re.DOTALL))
-            cs, ce = find_closing(name, match, item, ms, me)
-            #print('node', match, DomMatch(attrs, item[cs:ce]))
-            return DomMatch(attrs, item[cs:ce])
-
-        def parse_node_attr(match):
-            return dict((attr.lower(), a or b or c) \
-                for attr, a, b, c in \
-                re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats), match, re.DOTALL))
-
-        def parse_node_content(item, ms, me):
-            cs, ce = find_closing(name, match, item, ms, me)
-            return item[cs:ce]
-
-        for match, (ms, me) in lst:
-            #print('MATCH', match, ms, me)
+        for match, match_index in lst:
+            #print('MATCH', match, matchIndex)
             lst2 = []
-            node_attrs = node_content = None
+            node = Node(tag=match, tagindex=match_index, item=item)
             if separate:
-                node = parse_node(match, ms, me)
                 ret_nodes.append(node)
             for ritem in ret:
-                if ritem is True:
-                    ritem = Result.Node
-                elif ritem is False or ritem is None:
-                    ritem = Result.Content
-                elif isclass(ritem) and issubclass(ritem, DomMatch):
-                    ritem = Result.Node
-
+                ritem = rtype2enum.get(ritem, ritem)
                 #print('  -> ritem', ritem)
                 if ritem == Result.Content:
                     # Element content (innerHTML)
-                    if node_content is None:
-                        node_content = parse_node_content(item, ms, me)
-                    lst2.append(node_content)
+                    lst2.append(node.content)
                 elif ritem == Result.Text:
                     # Only text (remove all tags from content)
-                    if node_content is None:
-                        node_content = parse_node_content(item, ms, me)
-                    lst2.append(remove_tags_re.sub('', node_content))
+                    lst2.append(remove_tags_re.sub('', node.content))
                 elif ritem == Result.Node:
                     # Get full node (content and all attributes)
-                    if node_attrs is None:
-                        node_attrs = parse_node_attr(match)
-                    if node_content is None:
-                        node_content = parse_node_content(item, ms, me)
-                    lst2.append(DomMatch(node_attrs, node_content))
+                    lst2.append(node)
+                elif ritem == Result.DomMatch:
+                    # Get old node (content and all attributes)
+                    lst2.append(DomMatch(node.attrs, node.content))
                 else:   # attribute
-                    if node_attrs is None:
-                        node_attrs = parse_node_attr(match)
                     try:
-                        lst2.append(node_attrs[ritem])
+                        lst2.append(node.attrs[ritem])
                     except KeyError:
                         if not skip_missing:
                             lst2.append(None)
@@ -367,9 +486,9 @@ def dom_select(html, selectors):
         selectors = [ selectors ]
     rl_re = re.compile(r'''xxx''')   # TODO:  split elector by ","
     # find single tag (with params)
-    rs_re = re.compile(r'''(?P<tag>\w+)(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
+    tag_re = re.compile(r'''(?P<tag>\w+)(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
     # find params (id, class, attr and pseudo)
-    ra_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|::(?P<pseudo>\w+)(?:\((?P<psarg>\w+(?:,\s*\w+)*)\))?''')
+    attr_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|::(?P<pseudo>\w+)(?:\((?P<psarg>\w+(?:,\s*\w+)*)\))?''')
     attrSelectors = {
         None:  lambda v: True,
         '=':   lambda v: v,
@@ -382,15 +501,16 @@ def dom_select(html, selectors):
     for selalt in selectors:
         res = []  # All matches for single selector
         for sel in selalt.split(','):  # TODO:  omit ',' in quotas
-            part, out = html, []
-            for rs in rs_re.finditer(sel):
-                tag = rs.groupdict()['tag'] or u''
-                ats = rs.groupdict()['attr1'] or rs.groupdict()['attr2'] or u''
-                if tag == u'*':
-                    tag = u''
-                #print(f'tag="{tag}", attr="{ats}"')
+            part, tree, out_stack = html, None, []
+            for rs in tag_re.finditer(sel):
+                tree_last = False
+                tag = rs.groupdict()['tag'] or ''
+                ats = rs.groupdict()['attr1'] or rs.groupdict()['attr2'] or ''
+                if tag == '*':
+                    tag = ''
+                print(f'tag="{tag}", attr="{ats}"')
                 attrs, retat = defaultdict(lambda: []), []
-                for ra in ra_re.finditer(ats):
+                for ra in attr_re.finditer(ats):
                     #print('RA', ra.groupdict())
                     if ra.groupdict()['id']:
                         attrs['id'].append(ra.groupdict()['id'])
@@ -399,14 +519,14 @@ def dom_select(html, selectors):
                     elif ra.groupdict()['attr']:
                         key = ra.groupdict()['attr']
                         op  = ra.groupdict()['aop']
-                        val = ra.groupdict()['aval0'] or ra.groupdict()['aval1'] or ra.groupdict()['aval2'] or u''
+                        val = ra.groupdict()['aval0'] or ra.groupdict()['aval1'] or ra.groupdict()['aval2'] or ''
                         try:
                             attrs[key].append(attrSelectors[op](val))
                         except KeyError:
                             raise KeyError('Attribute selector "{op}" is not supported'.format(op=op))
                     elif ra.groupdict()['pseudo']:
                         pseudo = ra.groupdict()['pseudo']
-                        psarg = ra.groupdict()['psarg'] or u''
+                        psarg = ra.groupdict()['psarg'] or ''
                         if pseudo == 'attr':
                             retat += list(a.strip() for a in psarg.split(','))
                         elif pseudo == 'content':
@@ -415,16 +535,37 @@ def dom_select(html, selectors):
                             retat.append(Result.Node)
                         elif pseudo == 'text':
                             retat.append(Result.Text)
+                        elif pseudo == 'DomMatch':
+                            retat.append(Result.DomMatch)
                         else:
                             raise KeyError('Pseudo-class "{op}" is not supported'.format(op=pseudo))
                     #print('RA', ra.groupdict(), attrs)
                 #print(' -RS', attrs)
                 if retat:
-                    part = dom_search(part, tag, dict(attrs), retat)
+                    part, tree = dom_search(part if tree is None else tree, tag, dict(attrs),
+                                            ResultParam(retat, missing=MissingAttr.NoSkip, separate=True))
+                    if not tree:
+                        break
+                    out_stack.append(part)
+                    tree_last = True
+                    #print('PART', list(zip(part, tree)))
+                    #res += list(zip(res, part))
                 else:
-                    out = part = dom_search(part, tag, dict(attrs))
-            #ret += dom_search(html, sel)
-            res += part
+                    part, tree = dom_search(part if tree is None else tree, tag, dict(attrs)), None
+                print('PART', part)
+                print('TREE', tree)
+                print('STACK', out_stack)
+            print('SelPART', part)
+            print('SelSTACK.1', out_stack)
+            if len(out_stack) > 1 or (out_stack and not tree_last):
+                if tree is None:
+                    out_stack.append(part)
+                print('SelSTACK.2', out_stack)
+                print('SelSTACK.3', list(zip(*out_stack)))
+                res += list(zip(*out_stack))
+            else:
+                res += part
+        print('RES', res)
         if ret == None:
             ret = res
         else:
@@ -478,7 +619,7 @@ if __name__ == '__main__':
         print(dom_search(html, 'p', {'a': aEnds('2')}))
         print(dom_search(html, 'p', {'a': aWordStarts('2')}))
 
-    html = u'''
+    html = '''
     <ul class="a", data="vvv">
     <a href="a/a">Aa</a> qwe aaa
     <a href="a/b">Ab</a> asd aaa
@@ -536,14 +677,24 @@ if __name__ == '__main__':
 
     #print(dom_search('<a x=11>A11<b y=12 z=13>B1</b>A12</a><a x=21>A21<b y=22 z=23>B2</b>A22</a>',
     #                 'a',
-    #                 ret=ExtraResult(['x', 'y', 'z', Result.Text])
+    #                 ret=ResultParam(['x', 'y', 'z', Result.Text])
     #                 #ret='x'
     #                 ))
 
-    print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret='x'))
-    print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret=['x']))
-    print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret=ExtraResult(['x'], separate=True)))
-    #print(dom_select('<a x=11>A11<b y=12 z=13>B1</b>A12</a><a x=21>A21<b y=22 z=23>B2</b>A22</a>',
-    #                 'a::attr(x)::text()'))
+    #print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret='x'))
+    #print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret=['x']))
+    #print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret=ResultParam(['x'], separate=True)))
+    out = dom_select([
+        '<a x=11>A11<b y=12 z=13>B1</b>A12</a><a x=21>A21<b y=22 z=23>B2</b>A22</a>',
+        '<a x=31>A31<b y=32 z=33>B1</b>A32</a>', ],
+        'a::attr(x)::text() b::attr(y)'
+        #'a b::attr(y)'
+        #'a b'
+        #'a::attr(x) b'
+    )
+    print(out)
+    #for b, in out:
+    #    print(b)
+
 
 

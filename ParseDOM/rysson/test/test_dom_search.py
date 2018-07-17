@@ -7,7 +7,7 @@ from unittest import skip as skiptest, skipIf as skiptestIf
 
 from ..dom import dom_search
 from ..dom import aWord, aWordStarts, aStarts, aEnds, aContains
-from ..dom import DomMatch   # for test only
+from ..dom import DomMatch, ResultParam, MissingAttr   # for test only
 
 
 
@@ -571,4 +571,20 @@ class TestDomSearch_DomMatch(TestCase):
             self.assertEqual(dom_search([mA], 'a'), ['A'])
             self.assertEqual(dom_search((mA,), 'a'), ['A'])
 
+
+class TestDomSearch_ResultParam(TestCase):
+
+    def test_missing_attr(self):
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam('x', missing=MissingAttr.NoSkip)), ['1', None])
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam(['x'], missing=MissingAttr.NoSkip)), [['1'], [None]])
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam('x', missing=MissingAttr.SkipIfDirect)), ['1'])
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam(['x'], missing=MissingAttr.SkipIfDirect)), [['1'], [None]])
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam('x', missing=MissingAttr.SkipAll)), ['1'])
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam(['x'], missing=MissingAttr.SkipAll)), [['1']])
 
