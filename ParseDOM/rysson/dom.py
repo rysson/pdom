@@ -48,6 +48,9 @@ class AttrDict(dict):
         self[key] = value
 
 
+regex = re.compile
+
+
 class Patterns(AttrDict):
     """All usefull patterns"""
     def __init__(self):
@@ -76,6 +79,7 @@ class Patterns(AttrDict):
 
 pats = Patterns()
 remove_tags_re = re.compile(pats.nodeTag)
+
 
 class DomMatch(namedtuple('DomMatch', ['attrs', 'content'])):
     __slots__ = ()
@@ -118,10 +122,14 @@ class ResultParam(object):
     missing
         How to handle missing attributes, see MissingAttr.
     """
-    def __init__(self, args, separate=False, missing=MissingAttr.SkipIfDirect):
+    def __init__(self, args,
+                 separate=False,
+                 missing=MissingAttr.SkipIfDirect,
+                 sync=False):
         self.args = args
         self.separate = separate
         self.missing = missing
+        self.sync = sync
 
 
 def aWord(s):
@@ -163,6 +171,15 @@ def _tostr(s):
     elif not isinstance(s, basestring):
         s = str(s)
     return s
+
+
+def _make_html_list(html):
+    r"""Helper. Make list of HTML part."""
+    if Response and isinstance(html, Response):
+        html = html.text
+    if isinstance(html, DomMatch) or not isinstance(html, (list, tuple)):
+        html = [ html ]
+    return html
 
 
 def find_node(name, match, item, ms, me):
@@ -244,7 +261,10 @@ class Node(object):
 
     __slots__ = ('ts', 'cs', 'ce', 'te',
                  'item', 'name', 'tag',
-                 '__attrs', '__content')
+                 '__attrs',
+                 #'__content',
+                 #'__vals',
+                 )
 
     def __init__(self, tag, item=None, tagindex=None):
         self.ts = self.cs = self.ce = self.te = 0
@@ -349,6 +369,8 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         Attributes to match or None if attributes has no matter. See below.
     ret : str or list of str or Node or DomMatch or False or None
         What to return. Tag content if False or None, Node or DomMatch nodes or attributes.
+    exclude_comments : bool, default False
+        If True, remove HTML comments before search.
 
     Returns
     -------
@@ -365,10 +387,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     # Idea is taken form parseDOM() by Tobias Ussing and Henrik Jensen.
 
     #print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
-    if Response and isinstance(html, Response):
-        html = html.text
-    if isinstance(html, DomMatch) or not isinstance(html, (list, tuple)):
-        html = [ html ]
+    html = _make_html_list(html)
 
     if exclude_comments:
         # TODO: make it good, it's to simple, should ommit quotation in attribute
@@ -392,24 +411,29 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     #    ritem = Result.Node
 
     ret_lst, ret_nodes = [], []
+
+    # Get details about expected result type
     try:
         separate = ret.separate
         skip_missing = ret.missing
+        sync = ret.sync
         ret = ret.args
     except AttributeError:
-        separate = False
+        separate = sync = False
         skip_missing = MissingAttr.SkipIfDirect
 
-    # return list of values if ret is list  [a] -> [x]
-    # else return values                    a   -> x
+    # Return list of values if ret is list  [a] -> [x]
+    # otherwise return just values          a   -> x
     if isinstance(ret, (list, tuple)):
         retlstadd = ret_lst.append
         skip_missing = skip_missing == MissingAttr.SkipAll
+        sync_none = [None]
     else:
         retlstadd, ret = ret_lst.extend, [ ret ]
         skip_missing = skip_missing != MissingAttr.NoSkip
+        sync_none = None
 
-    for item in html:
+    for ii, item in enumerate(html):
         item = _tostr(item)
         if exclude_comments:
             item = re_comments.sub(item, '')
@@ -440,6 +464,10 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                             if not lst[i] in lst2:
                                 del lst[i]
                     if not lst:
+                        if sync:
+                            ret_lst.append(sync_none)
+                            if separate:
+                                ret_nodes.append(sync_none)
                         break
         except BreakAtrrloop:
             pass
@@ -486,6 +514,209 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
 
 
 
+# -------  DOM Select -------
+
+#: Find alternatives with subgroups.
+#s_alt_re = re.compile(r'''\s*((?:\(.*?\)|".*?"|[^,{}]+?)+|[{}])\s*''')
+s_alt_re = re.compile(r'''\s*((?:\(.*?\)|".*?"|[^,{}\s+>]+?)+|[,{}+>])\s*''')
+#: Find single tag (with params).
+s_tag_re = re.compile(r'''(?P<tag>\w+)(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
+# Find params (id, class, attr and pseudo).
+s_attr_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|::(?P<pseudo>\w+)(?:\((?P<psarg1>\w+(?:,\s*\w+)*)\))?|(?:\((?P<psarg2>\w+(?:,\s*\w+)*)\))''')
+
+#: Attribute selector operation.
+s_attrSelectors = {
+    None:  lambda v: True,
+    '=':   lambda v: v,
+    '~=':  aWord,
+    '|=':  aWordStarts,
+    '^=':  aStarts,
+    '$=':  aEnds,
+    '*=':  aContains,
+}
+
+def _split_selector(selector):
+    r"""
+    Helper. Split alternatives in selector with subgroups.
+
+    Parameters
+    ----------
+    selector : str
+        CSS selector to split. Extra grouping { } can be used.
+
+    Returns
+    -------
+    list
+        List of splited selectors.
+
+    Examaples
+    ---------
+
+    CSS groups.
+    >>> _split_selector("A B")
+    [['A', 'B']]
+
+    >>> _split_selector("A, B")
+    [['A'], ['B']]
+
+    Also support extra groups.
+    >>> _split_selector("A {B, C D}")
+    [['A', [['B'], ['C', 'D']]]]
+    """
+    class Work(object):
+        __slots__ = ('stack', 'cur', 'out', 'comma')
+        def __init__(self):
+            self.stack, self.out = [], []
+            self.cur, self.comma = self.out, True
+        def enter(self):
+            new = []
+            self.append(new)
+            self.stack.append(self.cur)
+            self.cur = new
+        def exit(self):
+            self.cur = self.stack.pop()
+        def append(self, s):
+            if w.comma:
+                w.cur.append([s])
+            else:
+                w.cur[-1].append(s)
+            w.comma = False
+    w = Work()
+    #print(" --- ", s_alt_re.findall(selector))
+    for s in s_alt_re.finditer(selector):
+        s = s.group(1)
+        if s == ',':
+            w.comma = True
+        elif s == '{':
+            w.enter()
+            w.comma = True
+        elif s == '}':
+            if not w.stack:
+                raise ValueError("Unexpected '}}' in '{}'".format(selector))
+            w.exit()
+            w.comma = False
+        elif s in '+>':
+            raise NotImplementedError('CSS + > selector not supperted yet')
+        else:
+            w.append(s)
+    #print(w.out)
+    return w.out
+
+
+def _select_desc(res, html, selectors_desc, sync=False):
+    r"""
+    """
+    part, tree, out_stack = html, None, []
+    # Go through descending selector
+    for single_selector in selectors_desc:
+        #print('=======  SINGLE', single_selector)
+        if isinstance(single_selector, list):
+            # subgroup
+            subhtml = list(part if tree is None else tree)
+            subpart = [part] if tree else []
+            for sel in single_selector:
+                #print('SEL-Alt', sel)
+                res2 = []
+                _select_desc(res2, subhtml, sel, sync=True)
+                #print('mix!!! sh', subhtml)
+                #print('mix!!! sr', res2)
+                if not res2:
+                    return []
+                subpart.append(res2)
+            #print('---')
+            #print('Mix!!! P', part)
+            #print('MIX!!! S', subpart)
+            part = list(zip(*subpart))
+            #print('MIX!!! P', part)
+            continue
+        #print('--- SINGLE', single_selector)
+        rs = s_tag_re.match(single_selector)
+        if not rs:
+            raise ValueError("Unknow selector {}'".format(single_selector))
+        tree_last = False
+        tag = rs.groupdict()['tag'] or ''
+        ats = rs.groupdict()['attr1'] or rs.groupdict()['attr2'] or ''
+        if tag == '*':
+            tag = ''
+        #print(f'tag="{tag}", attr="{ats}"')
+        attrs, retat = defaultdict(lambda: []), []
+        for ra in s_attr_re.finditer(ats):
+            d = AttrDict(ra.groupdict())
+            #print('RA', ra.groupdict())
+            if d.id:
+                attrs['id'].append(d.id)
+            elif ra.groupdict()['class']:
+                attrs['class'].append(aWord(d['class']))
+            elif d.attr:
+                key = d.attr
+                op  = d.aop
+                val = d.aval0 or d.aval1 or d.aval2 or ''
+                try:
+                    attrs[key].append(s_attrSelectors[op](val))
+                except KeyError:
+                    raise KeyError('Attribute selector "{op}" is not supported'.format(op=op))
+            elif d.pseudo or d.psarg2:   # pseudo class (opt. shortcut for ::attr)
+                pseudo = d.pseudo or 'attr'
+                psarg = d.psarg1 or d.psarg2 or ''
+                if pseudo == 'attr':
+                    retat += list(a.strip() for a in psarg.split(','))
+                elif pseudo == 'content':
+                    retat.append(Result.Content)
+                elif pseudo == 'node':
+                    retat.append(Result.Node)
+                elif pseudo == 'text':
+                    retat.append(Result.Text)
+                elif pseudo == 'DomMatch':
+                    retat.append(Result.DomMatch)
+                elif pseudo == 'none':
+                    retat.append(Result.NoResult)
+                else:
+                    raise KeyError('Pseudo-class "{op}" is not supported'.format(op=pseudo))
+                if len(retat) > 1 and Result.NoResult in retat:
+                    raise ValueError('::none can NOT be combined with any another modifier')
+            #print('RA', ra.groupdict(), attrs)
+        #print(' -RS', attrs)
+        if retat:
+            #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, ret={dict(attrs)}...)')
+            part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(attrs),
+                                    ret=ResultParam(retat, missing=MissingAttr.NoSkip,
+                                                    separate=True, sync=sync))
+            if not tree:
+                return []
+            if retat == [Result.NoResult]:
+                part = None
+            else:
+                out_stack.append(part)
+            tree_last = True
+            #print('PART', list(zip(part, tree)))
+            #res += list(zip(res, part))
+        else:
+            #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, ret={dict(attrs)}, sync={sync})')
+            part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(attrs),
+                                    ret=ResultParam(None, sync=sync)), None
+            if not part:
+                return []
+        #print('PART', part)
+        #print('TREE', tree)
+        #print('STACK', out_stack)
+    #print('SelPART', part)
+    #print('SelSTACK.1', out_stack)
+    if part is None or len(out_stack) > 1 or (out_stack and not tree_last):
+        if tree is None and part:
+            out_stack.append(part)
+        #print('SelSTACK.2', out_stack)
+        #print('SelSTACK.3', list(zip(*out_stack)))
+        res += list(zip(*out_stack))
+    else:
+        res += part
+    return res
+
+
+def _select_alt(res, html, selectors_alt):
+    # Go through alternative selector
+    for sel in selectors_alt:
+        #print('SEL-ALT', sel)
+        _select_desc(res, html, sel)
 
 
 def dom_select(html, selectors):
@@ -497,95 +728,16 @@ def dom_select(html, selectors):
     if isinstance(selectors, basestring):
         ret = None
         selectors = [ selectors ]
-    rl_re = re.compile(r'''xxx''')   # TODO:  split elector by ","
-    # find single tag (with params)
-    tag_re = re.compile(r'''(?P<tag>\w+)(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
-    # find params (id, class, attr and pseudo)
-    attr_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|::(?P<pseudo>\w+)(?:\((?P<psarg>\w+(?:,\s*\w+)*)\))?''')
-    attrSelectors = {
-        None:  lambda v: True,
-        '=':   lambda v: v,
-        '~=':  aWord,
-        '|=':  aWordStarts,
-        '^=':  aStarts,
-        '$=':  aEnds,
-        '*=':  aContains,
-    }
+
+    html = _make_html_list(html)
+
+    # all selector from list
     for selalt in selectors:
+        selalt = _split_selector(selalt)
+        # Go through alternative selector
         res = []  # All matches for single selector
-        for sel in selalt.split(','):  # TODO:  omit ',' in quotas
-            part, tree, out_stack = html, None, []
-            for rs in tag_re.finditer(sel):
-                tree_last = False
-                tag = rs.groupdict()['tag'] or ''
-                ats = rs.groupdict()['attr1'] or rs.groupdict()['attr2'] or ''
-                if tag == '*':
-                    tag = ''
-                print(f'tag="{tag}", attr="{ats}"')
-                attrs, retat = defaultdict(lambda: []), []
-                for ra in attr_re.finditer(ats):
-                    #print('RA', ra.groupdict())
-                    if ra.groupdict()['id']:
-                        attrs['id'].append(ra.groupdict()['id'])
-                    elif ra.groupdict()['class']:
-                        attrs['class'].append(aWord(ra.groupdict()['class']))
-                    elif ra.groupdict()['attr']:
-                        key = ra.groupdict()['attr']
-                        op  = ra.groupdict()['aop']
-                        val = ra.groupdict()['aval0'] or ra.groupdict()['aval1'] or ra.groupdict()['aval2'] or ''
-                        try:
-                            attrs[key].append(attrSelectors[op](val))
-                        except KeyError:
-                            raise KeyError('Attribute selector "{op}" is not supported'.format(op=op))
-                    elif ra.groupdict()['pseudo']:
-                        pseudo = ra.groupdict()['pseudo']
-                        psarg = ra.groupdict()['psarg'] or ''
-                        if pseudo == 'attr':
-                            retat += list(a.strip() for a in psarg.split(','))
-                        elif pseudo == 'content':
-                            retat.append(Result.Content)
-                        elif pseudo == 'node':
-                            retat.append(Result.Node)
-                        elif pseudo == 'text':
-                            retat.append(Result.Text)
-                        elif pseudo == 'DomMatch':
-                            retat.append(Result.DomMatch)
-                        elif pseudo == 'none':
-                            retat.append(Result.NoResult)
-                        else:
-                            raise KeyError('Pseudo-class "{op}" is not supported'.format(op=pseudo))
-                        if len(retat) > 1 and Result.NoResult in retat:
-                            raise ValueError('::none can NOT be combined with any another modifier')
-                    #print('RA', ra.groupdict(), attrs)
-                #print(' -RS', attrs)
-                if retat:
-                    part, tree = dom_search(part if tree is None else tree, tag, dict(attrs),
-                                            ResultParam(retat, missing=MissingAttr.NoSkip, separate=True))
-                    if not tree:
-                        break
-                    if retat == [Result.NoResult]:
-                        part = None
-                    else:
-                        out_stack.append(part)
-                    tree_last = True
-                    #print('PART', list(zip(part, tree)))
-                    #res += list(zip(res, part))
-                else:
-                    part, tree = dom_search(part if tree is None else tree, tag, dict(attrs)), None
-                print('PART', part)
-                print('TREE', tree)
-                print('STACK', out_stack)
-            print('SelPART', part)
-            print('SelSTACK.1', out_stack)
-            if part is None or len(out_stack) > 1 or (out_stack and not tree_last):
-                if tree is None and part:
-                    out_stack.append(part)
-                print('SelSTACK.2', out_stack)
-                print('SelSTACK.3', list(zip(*out_stack)))
-                res += list(zip(*out_stack))
-            else:
-                res += part
-        print('RES', res)
+        _select_alt(res, html, selalt)
+        #print('RES', res)
         if ret == None:
             ret = res
         else:
@@ -704,10 +856,17 @@ if __name__ == '__main__':
     #print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret='x'))
     #print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret=['x']))
     #print(dom_search(['<a x="1">A</a><a>B</a>', '<a x="2">A</a><a>B</a>'], 'a', {}, ret=ResultParam(['x'], separate=True)))
-    out = dom_select([
-        '<a x=11>A11<b y=12 z=13>B1</b>A12</a><a x=21>A21<b y=22 z=23>B2</b>A22</a>',
-        '<a x=31>A31<b y=32 z=33>B1</b>A32</a><a x=31>A41<c y=42 z=43>B1</c>A42</a>', ],
-        'a::attr(x)::text() b::attr(y)'
+
+    #print(_split_selector('A { B, C D {E, F}}, Z'))
+
+    out = dom_select(
+        #['<a x=11>A11<b y=12 z=13>B1</b>A12</a><a x=21>A21<b y=22 z=23>B2</b>A22</a>',
+        # '<a x=31>A31<b y=32 z=33>B1</b>A32</a><a x=31>A41<c y=42 z=43>B1</c>A42</a>', ],
+        #'<a x=11>A1<b y=12>B1</b><c z=13>C1</c></a><a x=21>A2<b y=22>B2</b><c z=23>C2</c></a><a x=31>A3<b y=32>B3</b></a>',
+        '<a x=11>A1<b y=12>B1</b><c z=13>C1</c></a><a x=31>A3<b y=32>B3</b></a>',
+
+        'a::attr(x)::text() { b::attr(y), c::attr(z) }'  # [x, T [[y] [z]]]
+        #'a::attr(x)::text() b::attr(y)'
         #'a b::attr(y)'
         #'a b'
         #'a::attr(x) b'
@@ -718,5 +877,25 @@ if __name__ == '__main__':
     #for b, in out:
     #    print(b)
 
+    'ul.dropdown-menu { a::attr(href), img::attr(src:"/(?P<name>.*?)\.[^.]*$") }'
+    'ul.dropdown-menu { a::attr(href), img::attr(src) }'
+
+    def printres(*args):
+        print('\033[33;1m>\033[0m', *args, sep=' \033[33m|\033[0m ', end=' \033[33m|\033[0m\n')
+    H = '<a x=11>A1<b y=12>B1</b><c z=13>C1</c></a><a x=31>A3<b y=32>B3</b></a>'
+    for (x, t), (y,), (z,) in dom_select(H, 'a::attr(x)::text() { b::attr(y), c::attr(z) }'):
+        printres(t, x, y, z)
+    for y, z in dom_select(H, 'b::attr(y,z)'):
+        printres(y, z)
+    for (x, t), (y,) in dom_select(H, 'a::attr(x)::text() b::attr(y)'):
+        printres(t, x, y)
+    #for row in dom_select(H, 'a::attr(x)::text() b::attr(y), a c::attr(z)'):
+    for row in dom_select(H, 'a::attr(x) b, a c'):
+        printres(row)
+    for row in dom_select(H, '{a(x) b, a c}'):
+        printres(row)
+    print('..................')
+    for row in dom_select(H, '{a c}'):
+        printres(row)
 
 
