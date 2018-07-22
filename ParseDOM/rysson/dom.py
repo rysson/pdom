@@ -27,13 +27,17 @@ else:
 
 
 class NoResult(list):
+    __slots__ = ()
     def __init__(self):
         super(NoResult, self).__init__()
     def append(self, v):
         raise NotImplementedError('NoResult is readonly')
     def extend(self, v):
         raise NotImplementedError('NoResult is readonly')
+    def __setitem__(self, key, val):
+        raise NotImplementedError('NoResult is readonly')
     # TODO: all methods
+
 
 
 class AttrDict(dict):
@@ -98,6 +102,9 @@ class Result(Enum):
     OuterHTML = 4
     DomMatch = 91
 
+    # --- internals -- 
+    RemoveItem = 'REMOVE'
+
 
 class MissingAttr(Enum):
     #: Do not skip any attribures, return None if missing.
@@ -121,6 +128,9 @@ class ResultParam(object):
         If true dom_search() return content and values separated.
     missing
         How to handle missing attributes, see MissingAttr.
+    sync : bool or Result.RemoveItem
+        If True result caontains None (or Result.RemoveItem) if not match
+        If False result contains only matching items.
     """
     def __init__(self, args,
                  separate=False,
@@ -427,11 +437,11 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     if isinstance(ret, (list, tuple)):
         retlstadd = ret_lst.append
         skip_missing = skip_missing == MissingAttr.SkipAll
-        sync_none = [None]
+        sync_none = [None if sync is True else sync]
     else:
         retlstadd, ret = ret_lst.extend, [ ret ]
         skip_missing = skip_missing != MissingAttr.NoSkip
-        sync_none = None
+        sync_none = None if sync is True else sync
 
     for ii, item in enumerate(html):
         item = _tostr(item)
@@ -520,7 +530,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
 #s_alt_re = re.compile(r'''\s*((?:\(.*?\)|".*?"|[^,{}]+?)+|[{}])\s*''')
 s_alt_re = re.compile(r'''\s*((?:\(.*?\)|".*?"|[^,{}\s+>]+?)+|[,{}+>])\s*''')
 #: Find single tag (with params).
-s_tag_re = re.compile(r'''(?P<tag>\w+)(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
+s_tag_re = re.compile(r'''(?P<tag>\w+)(?P<optional>\?)?(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
 # Find params (id, class, attr and pseudo).
 s_attr_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|::(?P<pseudo>\w+)(?:\((?P<psarg1>\w+(?:,\s*\w+)*)\))?|(?:\((?P<psarg2>\w+(?:,\s*\w+)*)\))''')
 
@@ -621,12 +631,12 @@ def _select_desc(res, html, selectors_desc, sync=False):
                 #print('mix!!! sh', subhtml)
                 #print('mix!!! sr', res2)
                 if not res2:
-                    return []
+                    return
                 subpart.append(res2)
             #print('---')
             #print('Mix!!! P', part)
             #print('MIX!!! S', subpart)
-            part = list(zip(*subpart))
+            part = list(p for p in zip(*subpart) if Result.RemoveItem not in p)
             #print('MIX!!! P', part)
             continue
         #print('--- SINGLE', single_selector)
@@ -634,30 +644,31 @@ def _select_desc(res, html, selectors_desc, sync=False):
         if not rs:
             raise ValueError("Unknow selector {}'".format(single_selector))
         tree_last = False
-        tag = rs.groupdict()['tag'] or ''
-        ats = rs.groupdict()['attr1'] or rs.groupdict()['attr2'] or ''
+        dt = AttrDict(rs.groupdict())
+        tag = dt.tag or ''
+        ats = dt.attr1 or dt.attr2 or ''
         if tag == '*':
             tag = ''
         #print(f'tag="{tag}", attr="{ats}"')
         attrs, retat = defaultdict(lambda: []), []
         for ra in s_attr_re.finditer(ats):
-            d = AttrDict(ra.groupdict())
+            da = AttrDict(ra.groupdict())
             #print('RA', ra.groupdict())
-            if d.id:
-                attrs['id'].append(d.id)
-            elif ra.groupdict()['class']:
-                attrs['class'].append(aWord(d['class']))
-            elif d.attr:
-                key = d.attr
-                op  = d.aop
-                val = d.aval0 or d.aval1 or d.aval2 or ''
+            if da.id:
+                attrs['id'].append(da.id)
+            elif da['class']:
+                attrs['class'].append(aWord(da['class']))
+            elif da.attr:
+                key = da.attr
+                op  = da.aop
+                val = da.aval0 or da.aval1 or da.aval2 or ''
                 try:
                     attrs[key].append(s_attrSelectors[op](val))
                 except KeyError:
                     raise KeyError('Attribute selector "{op}" is not supported'.format(op=op))
-            elif d.pseudo or d.psarg2:   # pseudo class (opt. shortcut for ::attr)
-                pseudo = d.pseudo or 'attr'
-                psarg = d.psarg1 or d.psarg2 or ''
+            elif da.pseudo or da.psarg2:   # pseudo class (opt. shortcut for ::attr)
+                pseudo = da.pseudo or 'attr'
+                psarg = da.psarg1 or da.psarg2 or ''
                 if pseudo == 'attr':
                     retat += list(a.strip() for a in psarg.split(','))
                 elif pseudo == 'content':
@@ -676,13 +687,18 @@ def _select_desc(res, html, selectors_desc, sync=False):
                     raise ValueError('::none can NOT be combined with any another modifier')
             #print('RA', ra.groupdict(), attrs)
         #print(' -RS', attrs)
+        rsync = False if not sync else True if dt.optional else Result.RemoveItem
         if retat:
-            #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, ret={dict(attrs)}...)')
+            #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, ret={dict(attrs)}, sync={rsync}, separate=True)')
             part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(attrs),
                                     ret=ResultParam(retat, missing=MissingAttr.NoSkip,
-                                                    separate=True, sync=sync))
+                                                    separate=True, sync=rsync))
             if not tree:
                 return []
+            if part and not dt.optional:
+                for i, v in enumerate(part):
+                    if v == [ Result.RemoveItem ]:
+                        part[i] = Result.RemoveItem
             if retat == [Result.NoResult]:
                 part = None
             else:
@@ -691,9 +707,9 @@ def _select_desc(res, html, selectors_desc, sync=False):
             #print('PART', list(zip(part, tree)))
             #res += list(zip(res, part))
         else:
-            #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, ret={dict(attrs)}, sync={sync})')
+            #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, ret={dict(attrs)}, sync={rsync})')
             part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(attrs),
-                                    ret=ResultParam(None, sync=sync)), None
+                                    ret=ResultParam(Result.Node, sync=rsync)), None
             if not part:
                 return []
         #print('PART', part)
@@ -859,23 +875,24 @@ if __name__ == '__main__':
 
     #print(_split_selector('A { B, C D {E, F}}, Z'))
 
-    out = dom_select(
-        #['<a x=11>A11<b y=12 z=13>B1</b>A12</a><a x=21>A21<b y=22 z=23>B2</b>A22</a>',
-        # '<a x=31>A31<b y=32 z=33>B1</b>A32</a><a x=31>A41<c y=42 z=43>B1</c>A42</a>', ],
-        #'<a x=11>A1<b y=12>B1</b><c z=13>C1</c></a><a x=21>A2<b y=22>B2</b><c z=23>C2</c></a><a x=31>A3<b y=32>B3</b></a>',
-        '<a x=11>A1<b y=12>B1</b><c z=13>C1</c></a><a x=31>A3<b y=32>B3</b></a>',
+    if False:
+        out = dom_select(
+            #['<a x=11>A11<b y=12 z=13>B1</b>A12</a><a x=21>A21<b y=22 z=23>B2</b>A22</a>',
+            # '<a x=31>A31<b y=32 z=33>B1</b>A32</a><a x=31>A41<c y=42 z=43>B1</c>A42</a>', ],
+            #'<a x=11>A1<b y=12>B1</b><c z=13>C1</c></a><a x=21>A2<b y=22>B2</b><c z=23>C2</c></a><a x=31>A3<b y=32>B3</b></a>',
+            '<a x=11>A1<b y=12>B1</b><c z=13>C1</c></a><a x=31>A3<b y=32>B3</b></a>',
 
-        'a::attr(x)::text() { b::attr(y), c::attr(z) }'  # [x, T [[y] [z]]]
-        #'a::attr(x)::text() b::attr(y)'
-        #'a b::attr(y)'
-        #'a b'
-        #'a::attr(x) b'
-        #'a::attr(x)::text() b::none'
-        #'b::none::none'
-    )
-    print(out)
-    #for b, in out:
-    #    print(b)
+            'a::attr(x)::text() { b::attr(y), c::attr(z) }'  # [x, T [[y] [z]]]
+            #'a::attr(x)::text() b::attr(y)'
+            #'a b::attr(y)'
+            #'a b'
+            #'a::attr(x) b'
+            #'a::attr(x)::text() b::none'
+            #'b::none::none'
+        )
+        print(out)
+        #for b, in out:
+        #    print(b)
 
     'ul.dropdown-menu { a::attr(href), img::attr(src:"/(?P<name>.*?)\.[^.]*$") }'
     'ul.dropdown-menu { a::attr(href), img::attr(src) }'
@@ -883,19 +900,27 @@ if __name__ == '__main__':
     def printres(*args):
         print('\033[33;1m>\033[0m', *args, sep=' \033[33m|\033[0m ', end=' \033[33m|\033[0m\n')
     H = '<a x=11>A1<b y=12>B1</b><c z=13>C1</c></a><a x=31>A3<b y=32>B3</b></a>'
-    for (x, t), (y,), (z,) in dom_select(H, 'a::attr(x)::text() { b::attr(y), c::attr(z) }'):
-        printres(t, x, y, z)
-    for y, z in dom_select(H, 'b::attr(y,z)'):
-        printres(y, z)
-    for (x, t), (y,) in dom_select(H, 'a::attr(x)::text() b::attr(y)'):
-        printres(t, x, y)
-    #for row in dom_select(H, 'a::attr(x)::text() b::attr(y), a c::attr(z)'):
-    for row in dom_select(H, 'a::attr(x) b, a c'):
-        printres(row)
-    for row in dom_select(H, '{a(x) b, a c}'):
-        printres(row)
-    print('..................')
-    for row in dom_select(H, '{a c}'):
+    if True:
+        for (x, t), (y,), (z,) in dom_select(H, 'a::attr(x)::text() { b::attr(y), c::attr(z) }'):
+            printres(t, x, y, z)
+        for y, z in dom_select(H, 'b::attr(y,z)'):
+            printres(y, z)
+        for (x, t), (y,) in dom_select(H, 'a::attr(x)::text() b::attr(y)'):
+            printres(t, x, y)
+        #for row in dom_select(H, 'a::attr(x)::text() b::attr(y), a c::attr(z)'):
+        for row in dom_select(H, 'a::attr(x) b, a c'):
+            printres(row)
+        for row in dom_select(H, '{a(x) b, a c}'):
+            printres(row)
+        print('..................')
+        for row in dom_select(H, '{a c}'):
+            printres(row)
+        print('..................')
+        for row in dom_select(H, 'a {b(y), c?(z)}'):
+            printres(row)
+    #for row in dom_select(H, 'a {b(y), c(z)} dI'):
+    #for row in dom_select(H, 'a {b(y), c(z)}'):
+    for row in dom_select(H, 'a { b, c?(z)}'):
         printres(row)
 
 
