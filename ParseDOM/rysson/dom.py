@@ -444,6 +444,11 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         sync_none = None if sync is True else sync
 
     for ii, item in enumerate(html):
+        if sync and item in (None, Result.RemoveItem):
+            #print('search - None')
+            #retlstadd([item])
+            ret_lst += [item]
+            continue
         item = _tostr(item)
         if exclude_comments:
             item = re_comments.sub(item, '')
@@ -615,13 +620,24 @@ def _split_selector(selector):
 
 def _select_desc(res, html, selectors_desc, sync=False):
     r"""
+    Select descending tags "A B". Supports aternatives "{A, B}".
+
+    Parameters
+    res : list of str
+        Result list, where found tags are appended.
+    html : list of str
+        List of input HTML parts.
+    selectors_desc : list of str
+        List of descending selectors. Each item can be aternativr list.
+    sync : boll or Result.RemoveItem, default False
+        if not False run dp,search in sync mode (returns None if not match).
     """
     part, tree, out_stack = html, None, []
     # Go through descending selector
     for single_selector in selectors_desc:
         #print('=======  SINGLE', single_selector)
         if isinstance(single_selector, list):
-            # subgroup
+            # subgroup of alterative nodes: " { A, B, ...} "
             subhtml = list(part if tree is None else tree)
             subpart = [part] if tree else []
             for sel in single_selector:
@@ -636,9 +652,11 @@ def _select_desc(res, html, selectors_desc, sync=False):
             #print('---')
             #print('Mix!!! P', part)
             #print('MIX!!! S', subpart)
+            # append as columns as rows
             part = list(p for p in zip(*subpart) if Result.RemoveItem not in p)
             #print('MIX!!! P', part)
             continue
+        # single node selector
         #print('--- SINGLE', single_selector)
         rs = s_tag_re.match(single_selector)
         if not rs:
@@ -649,16 +667,17 @@ def _select_desc(res, html, selectors_desc, sync=False):
         ats = dt.attr1 or dt.attr2 or ''
         if tag == '*':
             tag = ''
+        # node id, class, attribute selectors or pseudoclasses (what to return)
         #print(f'tag="{tag}", attr="{ats}"')
         attrs, retat = defaultdict(lambda: []), []
         for ra in s_attr_re.finditer(ats):
             da = AttrDict(ra.groupdict())
             #print('RA', ra.groupdict())
-            if da.id:
+            if da.id:          # -- ID (#id)
                 attrs['id'].append(da.id)
-            elif da['class']:
+            elif da['class']:  # -- class (.class)
                 attrs['class'].append(aWord(da['class']))
-            elif da.attr:
+            elif da.attr:      # -- attr ([attr...])
                 key = da.attr
                 op  = da.aop
                 val = da.aval0 or da.aval1 or da.aval2 or ''
@@ -666,7 +685,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
                     attrs[key].append(s_attrSelectors[op](val))
                 except KeyError:
                     raise KeyError('Attribute selector "{op}" is not supported'.format(op=op))
-            elif da.pseudo or da.psarg2:   # pseudo class (opt. shortcut for ::attr)
+            elif da.pseudo or da.psarg2:   # -- pseudo class (opt. shortcut for ::attr)
                 pseudo = da.pseudo or 'attr'
                 psarg = da.psarg1 or da.psarg2 or ''
                 if pseudo == 'attr':
@@ -694,6 +713,8 @@ def _select_desc(res, html, selectors_desc, sync=False):
                                     ret=ResultParam(retat, missing=MissingAttr.NoSkip,
                                                     separate=True, sync=rsync))
             if not tree:
+                #print('PART', part, 'RETURN.')
+                #print('TREE', tree, 'RETURN!')
                 return []
             if part and not dt.optional:
                 for i, v in enumerate(part):
@@ -711,6 +732,8 @@ def _select_desc(res, html, selectors_desc, sync=False):
             part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(attrs),
                                     ret=ResultParam(Result.Node, sync=rsync)), None
             if not part:
+                #print('PART', part, 'RETURN!')
+                #print('TREE', tree, 'RETURN.')
                 return []
         #print('PART', part)
         #print('TREE', tree)
@@ -900,7 +923,7 @@ if __name__ == '__main__':
     def printres(*args):
         print('\033[33;1m>\033[0m', *args, sep=' \033[33m|\033[0m ', end=' \033[33m|\033[0m\n')
     H = '<a x=11>A1<b y=12>B1</b><c z=13>C1</c></a><a x=31>A3<b y=32>B3</b></a>'
-    if True:
+    if False:
         for (x, t), (y,), (z,) in dom_select(H, 'a::attr(x)::text() { b::attr(y), c::attr(z) }'):
             printres(t, x, y, z)
         for y, z in dom_select(H, 'b::attr(y,z)'):
@@ -918,9 +941,14 @@ if __name__ == '__main__':
         print('..................')
         for row in dom_select(H, 'a {b(y), c?(z)}'):
             printres(row)
-    #for row in dom_select(H, 'a {b(y), c(z)} dI'):
-    #for row in dom_select(H, 'a {b(y), c(z)}'):
-    for row in dom_select(H, 'a { b, c?(z)}'):
+        #for row in dom_select(H, 'a {b(y), c(z)} dI'):
+        #for row in dom_select(H, 'a {b(y), c(z)}'):
+        for row in dom_select(H, 'a { b, c?(z)}'):
+            printres(row)
+    H = '<a><b>B1></b><c>C1<d>D1></d><e>E1</e></c></a>' \
+        '<a><b>B1></b><z>C1<d>D1></d><e>E1</e></z></a>' \
+        '<a><b>B1></b><c>C1<d>D1></d><f>F1</f></c></a>'
+    for row in dom_select(H, 'a { b, c? {d, e?}}'):
         printres(row)
 
 
