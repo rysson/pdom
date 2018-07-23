@@ -123,3 +123,6 @@ if __name__ == '__main__':
         for mod in mods:
             t = check(mod + '.parse_dom', 'a')
             print('Node: Python{py}, module: {mod}, time: {t:.3f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))
+        for mod in 'rysson',:
+            t = check(mod + '.dom_select', 'a')
+            print('Sel1: Python{py}, module: {mod}, time: {t:.3f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))

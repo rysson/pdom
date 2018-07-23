@@ -80,8 +80,29 @@ class Patterns(AttrDict):
         pats.openCloseTag = '(?:<(?P<beg>{anyTag}){anyAttr}\s*>)|(?:</(?P<end>{anyTag})\s*>)'.format(**pats)
         pats.nodeTag = '(?:<(?P<beg>{anyTag}){anyAttr}(?:\s*(?P<slf>/))?\s*>)|(?:</(?P<end>{anyTag})\s*>)'.format(**pats)
 
+        #: Find alternatives with subgroups.
+        pats.sel_alt_re = re.compile(r'''\s*((?:\(.*?\)|".*?"|[^,{}\s+>]+?)+|[,{}+>])\s*''')
+        #: Find single tag (with params).
+        pats.sel_tag_re = re.compile(r'''(?P<tag>\w+)(?P<optional>\?)?(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
+        #: Find params (id, class, attr and pseudo).
+        pats.sel_attr_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|::(?P<pseudo>\w+)(?:\((?P<psarg1>\w+(?:,\s*\w+)*)\))?|(?:\((?P<psarg2>\w+(?:,\s*\w+)*)\))''')
+
+
+class Regex(AttrDict):
+    """All usefull regex (compiled patterns)."""
+    def __init__(self, pats):
+        self.__pats = pats
+    def __getitem__(self, key):
+        pat = self.__pat[key]
+        if isinstance(pat, basestring):
+            self[pat] = re.compile(pat)
+            return self[pat]
+        raise KeyError('No regex "{}"'.format(key))
+
+
 
 pats = Patterns()
+regex = Regex(pats)
 remove_tags_re = re.compile(pats.nodeTag)
 
 
@@ -102,7 +123,7 @@ class Result(Enum):
     OuterHTML = 4
     DomMatch = 91
 
-    # --- internals -- 
+    # --- internals ---
     RemoveItem = 'REMOVE'
 
 
@@ -540,14 +561,6 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
 
 # -------  DOM Select -------
 
-#: Find alternatives with subgroups.
-#s_alt_re = re.compile(r'''\s*((?:\(.*?\)|".*?"|[^,{}]+?)+|[{}])\s*''')
-s_alt_re = re.compile(r'''\s*((?:\(.*?\)|".*?"|[^,{}\s+>]+?)+|[,{}+>])\s*''')
-#: Find single tag (with params).
-s_tag_re = re.compile(r'''(?P<tag>\w+)(?P<optional>\?)?(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
-# Find params (id, class, attr and pseudo).
-s_attr_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|::(?P<pseudo>\w+)(?:\((?P<psarg1>\w+(?:,\s*\w+)*)\))?|(?:\((?P<psarg2>\w+(?:,\s*\w+)*)\))''')
-
 #: Attribute selector operation.
 s_attrSelectors = {
     None:  lambda v: True,
@@ -606,8 +619,8 @@ def _split_selector(selector):
                 w.cur[-1].append(s)
             w.comma = False
     w = Work()
-    #print(" --- ", s_alt_re.findall(selector))
-    for s in s_alt_re.finditer(selector):
+    #print(" --- ", pats.sel_alt_re.findall(selector))
+    for s in pats.sel_alt_re.finditer(selector):
         s = s.group(1)
         if s == ',':
             w.comma = True
@@ -667,7 +680,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
             continue
         # single node selector
         #print('--- SINGLE', single_selector)
-        rs = s_tag_re.match(single_selector)
+        rs = pats.sel_tag_re.match(single_selector)
         if not rs:
             raise ValueError("Unknow selector {}'".format(single_selector))
         tree_last = False
@@ -679,7 +692,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
         # node id, class, attribute selectors or pseudoclasses (what to return)
         #print(f'tag="{tag}", attr="{ats}"')
         attrs, retat = defaultdict(lambda: []), []
-        for ra in s_attr_re.finditer(ats):
+        for ra in pats.sel_attr_re.finditer(ats):
             da = AttrDict(ra.groupdict())
             #print('RA', ra.groupdict())
             if da.id:          # -- ID (#id)
@@ -769,8 +782,73 @@ def _select_alt(res, html, selectors_alt):
 
 def dom_select(html, selectors):
     r"""
-    Find data in HTML by jQuery (CSS) simplified selector.
+    Find data in HTML by CSS / jQuery simplified selector.
+
+    Parameters
+    ----------
+    html : str or bytes or Node or DomMatch or list of str or list of bytes or list of Node
+        HTML/XML source. Directly or list of HTML/XML parts.
+    selectors : str or list of str
+        Selector (or list of selectors).
+
+    See CSS and jQuery selectors for base knowlage. This function support
+    only a few selectors plus some extra extension.
+
+    Supported selectors:
+        - '*'          All elements
+        - #id          The element with id
+        - .class       All elements with class
+        - tag          All <tag> elements
+        - E1, E1       Or, all E1 and all E2 matched elements
+        - E1 E2        Parent descendant, all E2 elements that are descendants of a E1 element
+        - [attr]       All elements with a attribute `attr`
+        - [attr=val]   All elements with a attribute value equal `val`
+        - [attr^=val]  All elements with a attribute value starting with `val`
+        - [attr$=val]  All elements with a attribute value ending with `val`
+        - [attr~=val]  All elements with a attribute value containing word `val`
+        - [attr|=val]  All elements with a attribute value containing word starting with`val`
+        - [attr*=val]  All elements with a attribute value containing `val`
+
+    Extra selectors:
+        - { E1, E2 }     Alternative, E1 and/or E2 elements;
+                         If some alternative doesn't exists None is returned.
+
+    Pseudo elements are used to choise result:
+        ::node      Returns Node(), it's default on last node
+        ::content   Returns node content, e.g. 'A<b>B</b>'
+        ::text      Returns note text (without tags), e.g. 'AB'
+        ::attr(A)   Returns attribute `A`, comma separated list can be used
+        (A)         Shortcut for ::attr(A)
+        ::none      Do not return anything, but node has to exist
+        ::DomMatch  Returns DomMatch nodes, for backward compability
+
+    Examples
+    --------
+
+    >>> dom_select('<a>A</a>', 'a')
+    [Node('A')]
+    >>> dom_select('<a>A</a>', 'a::text')
+    ['A']
+
+    >>> dom_select('<a><b>Ba</b></a><z><b>Bz</b></z>', 'a b')
+    [Node('Ba')]
+
+    >>> dom_select('<a><b>B</b></a>', 'a { b, c? }')
+    [(Node('Ba'), None)]
+    >>> for b, c in dom_select('<a><b>B</b></a>', 'a { b, c? }'):
+    >>>     print(b.text, 'no C' if c is None else c.text)
+
+    >>> dom_select('<a x="1">A</a>', 'a(x)')
+    [['1']]
+
     """
+    # TODO   Selectors:
+    # TODO   - A > B
+    # TODO   - :contains(T)
+    # TODO   - :empty
+    # TODO   - [attribute!=value]
+    # TODO   - fist, last, nth, etc.
+    #
     #print(' --- search for "{}"'.format(selectors))
     ret = []
     if isinstance(selectors, basestring):
@@ -796,7 +874,7 @@ def dom_select(html, selectors):
 # --- Old (alien) APIs ---
 
 def parseDOM(html, name=None, attrs=None, ret=None, exclude_comments=False):
-    return dom_search(html, name, attrs, ret)
+    return dom_search(html, name, attrs, Result.Content if ret is None else ret)
 
 def parse_dom(html, name='', attrs=None, req=False, exclude_comments=False):
     return dom_search(html, name, attrs, ret=DomMatch)
@@ -959,5 +1037,12 @@ if __name__ == '__main__':
         '<a><b>B1></b><c>C1<d>D1></d><f>F1</f></c></a>'
     for row in dom_select(H, 'a { b, c? {d, e?}}'):
         printres(row)
+    html = '<a x="11" y="12">A1<b>B1</b><c>C1</c></a> <a x="21" y="22">A2<b>B2</b></a>'
+    for row in dom_select(html, 'a::node {b, c?}'):
+        printres(row)
+    #for b, c in dom_select(html, 'a {b, c}'):
+    #    print(b.text, c and c.text)
+    for (a,), b, c in dom_select(html, 'a::node {b, c?}'):
+        print(a.text, b.text, c and c.text)
 
 
