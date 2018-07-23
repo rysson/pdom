@@ -270,17 +270,17 @@ class Node(object):
     """
 
     __slots__ = ('ts', 'cs', 'ce', 'te',
-                 'item', 'name', 'tag',
+                 'item', '__name', 'tagstr',
                  '__attrs',
                  #'__content',
                  #'__vals',
                  )
 
-    def __init__(self, tag, item=None, tagindex=None):
+    def __init__(self, tagstr, item=None, tagindex=None):
         self.ts = self.cs = self.ce = self.te = 0
-        self.tag = tag
+        self.tagstr = tagstr
         self.item = item or ''
-        self.name = ''
+        self.__name = None
         self.__attrs = None
         if tagindex is not None:
             self.ts, self.cs = tagindex
@@ -303,7 +303,7 @@ class Node(object):
         ms, me = (self.ts, self.cs) if tagindex is None else tagindex
         if item is None:
             item = self.item
-        self.name, self.ts, self.cs, self.ce, self.te = find_node(tagname, self.tag, item, ms, me)
+        self.__name, self.ts, self.cs, self.ce, self.te = find_node(tagname, self.tagstr, item, ms, me)
         return self
 
     @property
@@ -313,7 +313,7 @@ class Node(object):
             self.__attrs =  dict((attr.lower(), a or b or c) \
                                  for attr, a, b, c in \
                                  re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats),
-                                            self.tag, re.DOTALL))
+                                            self.tagstr, re.DOTALL))
         return self.__attrs
 
     @property
@@ -327,6 +327,15 @@ class Node(object):
     def text(self):
         r"""Returns tag text only."""
         return remove_tags_re.sub('', self.content)
+
+    @property
+    def name(self):
+        r"""Returns tag name."""
+        if self.__name is None:
+            r = re.match(pats.getTag, self.tagstr or '', re.DOTALL)
+            if r:
+                self.__name = r.group(1)
+        return self.__name or ''
 
     def __str__(self):
         return self.content
@@ -367,7 +376,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     Simple parse HTML/XML to get tags.
 
     Function parses HTML/XML, finds tags with attribites
-    and returns matching tags content or attribute.
+    and returns matching tags content or attribute or Node().
 
     Paramters
     ---------
@@ -493,7 +502,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         for match, match_index in lst:
             #print('MATCH', match, matchIndex)
             lst2 = []
-            node = Node(tag=match, tagindex=match_index, item=item)
+            node = Node(tagstr=match, tagindex=match_index, item=item)
             if separate:
                 ret_nodes.append(node)
             for ritem in ret:
@@ -759,8 +768,8 @@ def _select_alt(res, html, selectors_alt):
 
 
 def dom_select(html, selectors):
-    """
-    Find data in HTML in simple quite fast way in pure Python.
+    r"""
+    Find data in HTML by jQuery (CSS) simplified selector.
     """
     #print(' --- search for "{}"'.format(selectors))
     ret = []
