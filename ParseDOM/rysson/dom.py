@@ -95,7 +95,7 @@ class Patterns(AttrDict):
         pats.anyAttrName  = r'''[\w-]+'''
         pats.askAttrName  = r'''(?P<attr>[\w-]+)'''
         pats.anyAttr      = r'''(?:\s+{anyAttrName}{anyAttrVal})*'''.format(**pats)
-        pats.mtag         = lambda n: r'''{n}(?=[\s/>])'''.format(n='(?:{})'.format(n))
+        pats.mtag         = lambda n: r'''(?:{n})(?=[\s/>])'''.format(n=n)
         pats.mattr        = lambda n, v: \
                 r'''(?:\s+{attr}{anyAttrVal})'''.format(attr=n, **pats) \
                 if v is True else \
@@ -115,7 +115,11 @@ class Patterns(AttrDict):
         #: Find single tag (with params).
         pats.sel_tag_re = re.compile(r'''(?P<tag>\w+)(?P<optional>\?)?(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
         #: Find params (id, class, attr and pseudo).
-        pats.sel_attr_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|::(?P<pseudo>\w+)(?:\((?P<psarg1>\w+(?:,\s*\w+)*)\))?|(?:\((?P<psarg2>\w+(?:,\s*\w+)*)\))''')
+        #pats.sel_attr_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|(?P<pseudo>::?\w+)(?:\((?P<psarg1>\w+(?:,\s*\w+)*)\))?|(?:\((?P<psarg2>\w+(?:,\s*\w+)*)\))''')
+        pats.sel_attr_re = re.compile(
+            r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)''' \
+            r'''(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?''' \
+            r'''\]|(?P<pseudo>::?[-\w]+)(?:\((?P<psarg1>.*?)\))?''')
 
 
 class Regex(AttrDict):
@@ -379,6 +383,15 @@ class Node(object):
             self.preparse()
         return self.item[self.cs : self.ce]
 
+    innerHTML = content
+
+    @property
+    def outerHTML(self):
+        r"""Returns tag with content (outerHTML)."""
+        if not self.te:
+            self.preparse()
+        return self.item[self.ts : self.te]
+
     @property
     def text(self):
         r"""Returns tag text only."""
@@ -407,7 +420,8 @@ class Node(object):
         return self.content
 
     def __repr__(self):
-        return 'Node({attrs}, {content!r})'.format(attrs=self.attrs, content=self.content)
+        return 'Node({name!r}, {attrs}, {content!r})'.format(
+            name=self.name, attrs=self.attrs, content=self.content)
 
 
 def find_closing(name, match, item, ms, me):
@@ -577,15 +591,18 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
             for ritem in ret:
                 ritem = rtype2enum.get(ritem, ritem)
                 #print('  -> ritem', ritem)
-                if ritem == Result.Content:
+                if ritem == Result.Node:
+                    # Get full node (content and all attributes)
+                    lst2.append(node)
+                elif ritem == Result.Content:
                     # Element content (innerHTML)
                     lst2.append(node.content)
+                elif ritem == Result.OuterHTML:
+                    # Get outerHTML - full element (tag and content)
+                    lst2.append(node.outerHTML)
                 elif ritem == Result.Text:
                     # Only text (remove all tags from content)
                     lst2.append(remove_tags_re.sub('', node.content))
-                elif ritem == Result.Node:
-                    # Get full node (content and all attributes)
-                    lst2.append(node)
                 elif ritem == Result.DomMatch:
                     # Get old node (content and all attributes)
                     lst2.append(DomMatch(node.attrs, node.content))
@@ -739,7 +756,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
             tag = ''
         # node id, class, attribute selectors or pseudoclasses (what to return)
         #print(f'tag="{tag}", attr="{ats}"')
-        attrs, retat = defaultdict(lambda: []), []
+        attrs, retat, nodefilterlist = defaultdict(lambda: []), [], []
         for ra in pats.sel_attr_re.finditer(ats):
             da = AttrDict(ra.groupdict())
             #print('RA', ra.groupdict())
@@ -756,20 +773,41 @@ def _select_desc(res, html, selectors_desc, sync=False):
                 except KeyError:
                     raise KeyError('Attribute selector "{op}" is not supported'.format(op=op))
             elif da.pseudo or da.psarg2:   # -- pseudo class (opt. shortcut for ::attr)
-                pseudo = da.pseudo or 'attr'
-                psarg = da.psarg1 or da.psarg2 or ''
-                if pseudo == 'attr':
+                pseudo = da.pseudo or '::attr'
+                psarg = da.psarg1 or ''#da.psarg2 or ''
+                if pseudo == '::attr':
                     retat += list(a.strip() for a in psarg.split(','))
-                elif pseudo == 'content':
+                elif pseudo == '::content':
                     retat.append(Result.Content)
-                elif pseudo == 'node':
+                elif pseudo == '::node':
                     retat.append(Result.Node)
-                elif pseudo == 'text':
+                elif pseudo == '::text':
                     retat.append(Result.Text)
-                elif pseudo == 'DomMatch':
+                elif pseudo == '::DomMatch':
                     retat.append(Result.DomMatch)
-                elif pseudo == 'none':
+                elif pseudo == '::none':
                     retat.append(Result.NoResult)
+                elif pseudo == ':contains':
+                    def nodefilter(n, arg=psarg):
+                        return arg in n.text
+                    nodefilterlist.append(nodefilter)
+                elif pseudo == ':content-contains':
+                    def nodefilter(n, arg=psarg):
+                        return arg in n.content
+                    nodefilterlist.append(nodefilter)
+                elif pseudo == ':regex':
+                    rx = re.compile(psarg)
+                    def nodefilter(n, rx=rx):
+                        return rx.search(n.outerHTML)
+                    nodefilterlist.append(nodefilter)
+                elif pseudo == ':has':
+                    # TODO:  Fix: :has(c) in "<b z="<c>">"
+                    rx = re.compile(pats.melem(psarg, None, None))
+                    def nodefilter(n, rx=rx):
+                        return rx.search(n.content)
+                    nodefilterlist.append(nodefilter)
+                elif pseudo == ':empty':
+                    nodefilterlist.append(lambda n: not n.content)
                 else:
                     raise KeyError('Pseudo-class "{op}" is not supported'.format(op=pseudo))
                 if len(retat) > 1 and Result.NoResult in retat:
@@ -777,11 +815,12 @@ def _select_desc(res, html, selectors_desc, sync=False):
             #print('RA', ra.groupdict(), attrs)
         #print(' -RS', attrs)
         rsync = False if not sync else True if dt.optional else Result.RemoveItem
+        nodefilter = (lambda n: all(f(n) for f in nodefilterlist)) if nodefilterlist else None
         if retat:
             #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, ret={dict(attrs)}, sync={rsync}, separate=True)')
             part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(attrs),
                                     ret=ResultParam(retat, missing=MissingAttr.NoSkip,
-                                                    separate=True, sync=rsync))
+                                                    separate=True, sync=rsync, nodefilter=nodefilter))
             if not tree:
                 #print('PART', part, 'RETURN.')
                 #print('TREE', tree, 'RETURN!')
@@ -800,7 +839,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
         else:
             #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, ret={dict(attrs)}, sync={rsync})')
             part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(attrs),
-                                    ret=ResultParam(Result.Node, sync=rsync)), None
+                                    ret=ResultParam(Result.Node, sync=rsync, nodefilter=nodefilter)), None
             if not part:
                 #print('PART', part, 'RETURN!')
                 #print('TREE', tree, 'RETURN.')
@@ -891,10 +930,9 @@ def dom_select(html, selectors):
 
     """
     # TODO   Selectors:
-    # TODO   - A > B
-    # TODO   - :contains(T)
-    # TODO   - :empty
     # TODO   - [attribute!=value]
+    # TODO   - A > B
+    # TODO   - A + B
     # TODO   - fist, last, nth, etc.
     #
     #print(' --- search for "{}"'.format(selectors))
@@ -1085,13 +1123,15 @@ if __name__ == '__main__':
             '<a><b>B1></b><c>C1<d>D1></d><f>F1</f></c></a>'
         for row in dom_select(H, 'a { b, c? {d, e?}}'):
             printres(row)
-        html = '<a x="11" y="12">A1<b>B1</b><c>C1</c></a> <a x="21" y="22">A2<b>B2</b></a>'
-        for row in dom_select(html, 'a::node {b, c?}'):
-            printres(row)
-        #for b, c in dom_select(html, 'a {b, c}'):
-        #    print(b.text, c and c.text)
-        for (a,), b, c in dom_select(html, 'a::node {b, c?}'):
-            print(a.text, b.text, c and c.text)
+    html = '<a x="11" y="12">A1<b>B1</b><c>C1</c></a> <a x="21" y="22">A2<b>B2</b><cc/></a>'
+    for row in dom_select(html, 'a::node {b, c?}'):
+        printres(row)
+    #for b, c in dom_select(html, 'a {b, c}'):
+    #    print(b.text, c and c.text)
+    for (a,), b, c in dom_select(html, 'a::node {b, c?}'):
+        print(a.text, b.text, c and c.text)
+    for row in dom_select(html, ':empty'):
+        printres(row)
+    print('-')
 
-    print(dom_search('<a x="1" y="2">AX</a><a x="1" y="2">AZ</a>', 'a', {'x': '1', 'y': '2'}, ret=ResultParam(True, nodefilter=lambda n: 'Z' in n.content)))
 
