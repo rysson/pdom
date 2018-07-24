@@ -182,15 +182,20 @@ class ResultParam(object):
     sync : bool or Result.RemoveItem
         If True result caontains None (or Result.RemoveItem) if not match
         If False result contains only matching items.
+    nodefilter : callable or None
+        Filter found nodes: nodefilter(node) -> bool.
+        If filter function returns False node will be skipped.
     """
     def __init__(self, args,
                  separate=False,
                  missing=MissingAttr.SkipIfDirect,
-                 sync=False):
+                 sync=False,
+                 nodefilter=None):
         self.args = args
         self.separate = separate
         self.missing = missing
         self.sync = sync
+        self.nodefilter = nodefilter
 
 
 def aWord(s):
@@ -477,7 +482,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     if not name or name == '*':
         name = pats.anyTag   # any tag
 
-    class BreakAtrrloop(Exception): pass
+    class BreakAtrrLoop(Exception): pass
 
     # convert retrun item type to enum
     rtype2enum = {
@@ -495,12 +500,14 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     # Get details about expected result type
     try:
         separate = ret.separate
-        skip_missing = ret.missing
         sync = ret.sync
-        ret = ret.args
+        skip_missing = ret.missing
+        nodefilter = ret.nodefilter or (lambda n: True)
+        ret = ret.args  # get requested ret
     except AttributeError:
         separate = sync = False
         skip_missing = MissingAttr.SkipIfDirect
+        nodefilter = lambda n: True
 
     # Return list of values if ret is list  [a] -> [x]
     # otherwise return just values          a   -> x
@@ -516,7 +523,6 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     for ii, item in enumerate(html):
         if sync and item in (None, Result.RemoveItem):
             #print('search - None')
-            #retlstadd([item])
             ret_lst += [item]
             continue
         item = _tostr(item)
@@ -539,31 +545,33 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                         vkey = None
                         #print(f'-> key: {vkey!r}, val: "{val}"')
                     #print('PAT', pats.melem(name, vkey, val))
-                    lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL))
+                    lst2 = list(node
+                                for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL)
+                                for node in (Node(tagstr=r.group(), tagindex=r.span(), item=item),)
+                                if nodefilter(node))
+                    #lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL))
                     #print(' L2', lst2)
                     #print(' L ', lst)
                     if lst is None:   # First match
                         lst = lst2
                     else:             # Delete anything missing from the next list.
-                        for i in range(len(lst)-1, -1, -1):
-                            if not lst[i] in lst2:
-                                del lst[i]
+                        matches = set(n.tagstr for n in lst2)
+                        lst = list(n for n in lst if n.tagstr in matches)
                     if not lst:
                         if sync:
                             ret_lst.append(sync_none)
                             if separate:
                                 ret_nodes.append(sync_none)
                         break
-        except BreakAtrrloop:
+        except BreakAtrrLoop:
             pass
         if not lst:
             continue
         #print('LST', lst)
 
-        for match, match_index in lst:
+        for node in lst:
             #print('MATCH', match, matchIndex)
             lst2 = []
-            node = Node(tagstr=match, tagindex=match_index, item=item)
             if separate:
                 ret_nodes.append(node)
             for ritem in ret:
@@ -1072,17 +1080,18 @@ if __name__ == '__main__':
         #for row in dom_select(H, 'a {b(y), c(z)}'):
         for row in dom_select(H, 'a { b, c?(z)}'):
             printres(row)
-    H = '<a><b>B1></b><c>C1<d>D1></d><e>E1</e></c></a>' \
-        '<a><b>B1></b><z>C1<d>D1></d><e>E1</e></z></a>' \
-        '<a><b>B1></b><c>C1<d>D1></d><f>F1</f></c></a>'
-    for row in dom_select(H, 'a { b, c? {d, e?}}'):
-        printres(row)
-    html = '<a x="11" y="12">A1<b>B1</b><c>C1</c></a> <a x="21" y="22">A2<b>B2</b></a>'
-    for row in dom_select(html, 'a::node {b, c?}'):
-        printres(row)
-    #for b, c in dom_select(html, 'a {b, c}'):
-    #    print(b.text, c and c.text)
-    for (a,), b, c in dom_select(html, 'a::node {b, c?}'):
-        print(a.text, b.text, c and c.text)
+        H = '<a><b>B1></b><c>C1<d>D1></d><e>E1</e></c></a>' \
+            '<a><b>B1></b><z>C1<d>D1></d><e>E1</e></z></a>' \
+            '<a><b>B1></b><c>C1<d>D1></d><f>F1</f></c></a>'
+        for row in dom_select(H, 'a { b, c? {d, e?}}'):
+            printres(row)
+        html = '<a x="11" y="12">A1<b>B1</b><c>C1</c></a> <a x="21" y="22">A2<b>B2</b></a>'
+        for row in dom_select(html, 'a::node {b, c?}'):
+            printres(row)
+        #for b, c in dom_select(html, 'a {b, c}'):
+        #    print(b.text, c and c.text)
+        for (a,), b, c in dom_select(html, 'a::node {b, c?}'):
+            print(a.text, b.text, c and c.text)
 
+    print(dom_search('<a x="1" y="2">AX</a><a x="1" y="2">AZ</a>', 'a', {'x': '1', 'y': '2'}, ret=ResultParam(True, nodefilter=lambda n: 'Z' in n.content)))
 
