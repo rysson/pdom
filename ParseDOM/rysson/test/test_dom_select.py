@@ -110,3 +110,36 @@ class TestDomSelect(TestCase):
         self.assertEqual(dom_select('<a><b><c>C</c></b></a>', 'a b'), [N('<c>C</c>', tag='b')])
         self.assertEqual(dom_select('<a><b><c>C</c></b></a>', 'a b c'), [N('C')])
 
+    def test_attrs(self):
+        self.assertEqual(dom_select('<a>A</a>', 'a')[0].attrs, {})
+        self.assertEqual(dom_select('<a x="1">A</a>', 'a')[0].attrs, {'x': '1'})
+        self.assertEqual(dom_select('<a x="1" y="2">A</a>', 'a')[0].attrs, {'x': '1', 'y': '2'})
+        self.assertEqual(dom_select('<a x-y="1">A</a>', 'a')[0].attrs, {'x-y': '1'})
+        self.assertEqual(dom_select('<a x="1" x-y="2">A</a>', 'a')[0].attrs, {'x': '1', 'x-y': '2'})
+        self.assertEqual(dom_select('<a x="1" y="2" x-y="3">A</a>', 'a')[0].attrs, {'x': '1', 'y': '2', 'x-y': '3'})
+
+    def test_attr(self):
+        self.assertRaises(AttributeError, getattr, dom_select('<a>A</a>', 'a')[0].attr, 'x')
+        self.assertRaises(AttributeError, dom_select('<a>A</a>', 'a')[0].attr, 'x')
+        self.assertEqual(dom_select('<a x="1">A</a>', 'a')[0].attr.x, '1')
+        self.assertEqual(dom_select('<a x="1" y="2">A</a>', 'a')[0].attr.x, '1')
+        self.assertEqual(dom_select('<a x="1" y="2">A</a>', 'a')[0].attr.y, '2')
+        self.assertEqual(dom_select('<a x="1" y="2">A</a>', 'a')[0].attr('x'), '1')
+        self.assertEqual(dom_select('<a x="1" y="2">A</a>', 'a')[0].attr('y'), '2')
+        self.assertEqual(dom_select('<a x-y="1">A</a>', 'a')[0].attr('x-y'), '1')
+
+    def test_data(self):
+        self.assertRaises(AttributeError, getattr, dom_select('<a>A</a>', 'a')[0].data, 'x')
+        self.assertRaises(AttributeError, dom_select('<a>A</a>', 'a')[0].data, 'x')
+        self.assertRaises(AttributeError, getattr, dom_select('<a x="1">A</a>', 'a')[0].data, 'x')
+        self.assertRaises(AttributeError, dom_select('<a x="1">A</a>', 'a')[0].data, 'x')
+        self.assertEqual(dom_select('<a data-x="1">A</a>', 'a')[0].data.x, '1')
+        self.assertEqual(dom_select('<a data-x="1" data-y="2">A</a>', 'a')[0].data.x, '1')
+        self.assertEqual(dom_select('<a data-x="1" data-y="2">A</a>', 'a')[0].data.y, '2')
+        self.assertEqual(dom_select('<a data-x="1" data-y="2">A</a>', 'a')[0].data('x'), '1')
+        self.assertEqual(dom_select('<a data-x="1" data-y="2">A</a>', 'a')[0].data('y'), '2')
+        self.assertEqual(dom_select('<a data-x-y="1">A</a>', 'a')[0].data('x-y'), '1')
+        self.assertEqual(dom_select('<a data-x="1" x="2">A</a>', 'a')[0].data.x, '1')
+        self.assertEqual(dom_select('<a data-x="1" x="2">A</a>', 'a')[0].data('x'), '1')
+        self.assertEqual(dom_select('<a data-x-y="1" x-y="2">A</a>', 'a')[0].data('x-y'), '1')
+

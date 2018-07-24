@@ -40,6 +40,7 @@ class NoResult(list):
 
 
 
+# TODO move to separate module
 class AttrDict(dict):
     """dict() + attribute access"""
     def __getattr__(self, key):
@@ -50,6 +51,35 @@ class AttrDict(dict):
 
     def __setattr__(self, key, value):
         self[key] = value
+
+
+# TODO move to separate module
+class RoAttrDictView(object):
+    r"""
+    Read only, attribute only view of given dict.
+
+    Parameters
+    ----------
+    """
+
+    __slots__ = ('__mapping', '__fmt')
+
+    def __init__(self, mapping, fmt=None):
+        self.__mapping = mapping
+        self.__fmt = fmt
+
+    def __getattr__(self, key):
+        if self.__fmt is not None:
+            key = self.__fmt.format(key)
+        try:
+            return self.__mapping[key]
+        except KeyError:
+            raise AttributeError('RoAttrDictView of {} has no attribute "{}"'.format(
+                self.__mapping.__class__.__name__, key))
+
+    def __call__(self, key):
+        return getattr(self, key)
+
 
 
 regex = re.compile
@@ -357,6 +387,16 @@ class Node(object):
             if r:
                 self.__name = r.group(1)
         return self.__name or ''
+
+    @property
+    def attr(self):
+        r"""Returns attribute only access to node attributes."""
+        return RoAttrDictView(self.attrs)
+
+    @property
+    def data(self):
+        r"""Returns attribute only access to node custom attributes (data-*)."""
+        return RoAttrDictView(self.attrs, fmt='data-{}')
 
     def __str__(self):
         return self.content
