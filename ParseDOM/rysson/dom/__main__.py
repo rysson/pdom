@@ -12,6 +12,15 @@ from .selectorparser import set_debug_repr as selector_set_debug_repr
 
 class ExtArgumentParser(argparse.ArgumentParser):
     r"""
+    Extanded a bit ArgumentParser.
+
+    New features:
+
+    - set_default_subparser() - which subpurser should be used
+                                if these is no subcommand in args
+
+    - set_subparser_alternative() - any aternative for subcommand
+                                    including --cmd
     """
 
     def __init__(self, *args, **kwargs):
@@ -20,9 +29,14 @@ class ExtArgumentParser(argparse.ArgumentParser):
         self._subparsers_alt = {}
 
     def set_default_subparser(self, defname):
+        r"""Set default subparser (subcommand name)."""
         self._default_subparser = defname
 
     def set_subparser_alternative(self, name, altname, *altnames):
+        r"""
+        Set subparser (subcommand name) alternative.
+        Useful for ateratives with dashes.
+        """
         self._subparsers_alt[altnames] = name
         for a in altnames:
             self._subparsers_alt[a] = name

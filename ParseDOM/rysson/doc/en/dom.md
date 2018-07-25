@@ -36,7 +36,7 @@ Selector     | Description
 \#id         | The element with id
 .class       | All elements with class
 tag          | All <tag> elements
-E1, E1       | Or, all E1 and all E2 matched elements
+E1, E2       | Or, all E1 and all E2 matched elements
 E1 E2        | Parent descendant, all E2 elements that are descendants of a E1 element
 [attr]       | All elements with a attribute `attr`
 [attr=val]   | All elements with a attribute value equal `val`
@@ -154,8 +154,10 @@ for a in dom_select('<a></a><b/><c>C</c>', ':empty'):
 Selector     | Description
 -------------|------------
 ::node       | Returns Node(), it's default on last node
-::content    | Returns node content, e.g. `A<b>B</b>`
 ::text       | Returns note text (without tags), e.g. `AB`
+::content    | Returns node content, e.g. `A<b>B</b>`
+::innerHTML  | The same.
+::outerHTML  | Returns whole node (tag and content), e.g. `<a>A<b>B</b></a>`
 ::attr(A)    | Returns attribute `A`, comma separated list can be used
 (A)          | Shortcut for `::attr(A)`
 ::none       | Do not return anything, but node has to exist

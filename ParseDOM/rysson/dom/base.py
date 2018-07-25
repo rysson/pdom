@@ -437,5 +437,7 @@ s_resSelectors = {
     'text':      Result.Text,
     'DomMatch':  Result.DomMatch,
     'none':      Result.NoResult,
+    'innerHTML': Result.InnerHTML,
+    'outerHTML': Result.OuterHTML,
 }
 
