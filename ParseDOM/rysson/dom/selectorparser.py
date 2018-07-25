@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, unicode_literals, print_functi
 from collections import defaultdict
 
 from .base import aWord, aWordStarts, aStarts, aEnds, aContains
-from .base import s_attrSelectors, s_resSelectos, pats, regex
+from .base import s_attrSelectors, s_resSelectors, pats, regex
 from .base import Node, DomMatch, Result
 
 
@@ -177,7 +177,7 @@ class SelectorBuilder(object):
         elif name == 'res_param':
             assert self._cur_ident is not None
             try:
-                self.sel.result.append(s_resSelectos[self._cur_ident])
+                self.sel.result.append(s_resSelectors[self._cur_ident])
             except:
                 raise KeyError('Pseudo-elem (result param) "{}" is not supported'.format(self._cur_ident))
 

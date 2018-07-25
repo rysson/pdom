@@ -431,7 +431,7 @@ s_attrSelectors = {
 }
 
 #: Result param pseudo-element (::xxx)
-s_resSelectos = {
+s_resSelectors = {
     'content':   Result.Content,
     'node':      Result.Node,
     'text':      Result.Text,

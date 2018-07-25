@@ -8,6 +8,7 @@ dom.search()
 Function parses HTML/XML, finds tags with attribites
 and returns matching tags content or attribute or Node().
 
+
 dom.select()
 ============
 
@@ -113,7 +114,42 @@ First line match A with B and C (like in example above).
 Second line matched A with B and returned None in place of missing C.
 
 
-### Pseudo elements are used to choise result
+### Node pseudo-elements
+
+Selector              | Description
+----------------------|------------
+:contains(S)          | Match if text `S` in *text* content
+:content-contains(S)  | Match if text `S` in innerHTML content
+:regex(R)             | Match regex pattern `R` in outerHTML
+:has(T)               | Match if node has tag `T`
+:empty                | March if node has no any text or tag
+
+Those pseudo-elements are slower because thay have to find closing tag first.
+
+`:has` uses simple searching and can find tag `T` even in attribute value. It will be fixed.
+
+
+#### Examples
+
+##### :contains(S)
+
+```python
+for a in dom_select(html, 'a:contains("2B2")'):
+    print('Result:', a.text)
+# Result: A2B2
+```
+
+##### :empty(S)
+
+```python
+for a in dom_select('<a></a><b/><c>C</c>', ':empty'):
+    print('Result:', a.name)
+# Result: a
+# Result: b
+```
+
+
+### Result pseudo-elements
 
 Selector     | Description
 -------------|------------
