@@ -200,7 +200,9 @@ class SelectorBuilder(object):
         cname = '.'.join((parent or '', name))
         if DEBUG and __name__ == '__main__':
             print('Token Value {} = {!r}  ({})'.format(name, value, cname))
-        if name == 'tag' or cname in ('tag.ident', 'tag.'):
+        if not name and value == '(':
+            self._cur_val, self._cur_vals = None, []
+        elif name == 'tag' or cname in ('tag.ident', 'tag.'):
             self.sel.tag = value
         elif name == 'opt_tag':
             self.sel.optional = bool(value)
