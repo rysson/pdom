@@ -147,10 +147,10 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                         #print(f'-> key: {vkey!r}, val: "{val}"')
                     #print('PAT', pats.melem(name, vkey, val))
                     lst2 = list(node
-                                for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL)
+                                for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL | re.IGNORECASE)
                                 for node in (Node(tagstr=r.group(), tagindex=r.span(), item=item),)
                                 if nodefilter(node))
-                    #lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL))
+                    #lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL | re.IGNORECASE))
                     #print(' L2', lst2)
                     #print(' L ', lst)
                     if lst is None:   # First match

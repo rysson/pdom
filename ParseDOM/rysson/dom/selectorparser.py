@@ -196,7 +196,7 @@ class SelectorBuilder(object):
         elif cname == 'class_sel.ident':
             self.sel.attrs['class'].append(aWord(value))
         elif name == 'ident':
-            self._cur_ident, self._cur_attr_op = value, None
+            self._cur_ident, self._cur_attr_op = value.lower(), None
             self._cur_val, self._cur_vals = None, []
         elif cname == 'attr_sel.attr_op':
             self._cur_attr_op = value

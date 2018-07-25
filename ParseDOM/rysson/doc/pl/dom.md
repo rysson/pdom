@@ -54,7 +54,7 @@ E1 E2        | Potomek, każdy E2 które są potomkiem E1.
 [attr\|=val] | Każdy element, z atrybutem `attr` ze słowem¹ rozpoczętym od `val`.
 [attr*=val]  | Każdy element, z atrybutem `attr` zawierający tekst `val`.
 
-¹) Słowo to ciąg znaków alfanumerycznych, podkreślenie (_) i minus (-). 
+¹) Słowo to ciąg znaków (bez spacji).
 
 
 #### Przykłady

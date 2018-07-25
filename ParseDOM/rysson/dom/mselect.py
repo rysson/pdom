@@ -219,4 +219,6 @@ if __name__ == '__main__':
     for row in dom_select(html, ':has(b)'):
         printres(row)
     print('-')
+    for row in dom_select('<a x="1">A</a>', '[x]'):
+        printres(row)
 

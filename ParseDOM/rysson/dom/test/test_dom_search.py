@@ -219,10 +219,25 @@ class TestDomSearch(TestCase):
         with self.subTest('Parts: A[x], A {attr}'):
             self.assertEqual(dom_search(['<a x="1">A</a><a>B</a>', '<a x="1">A</a><a>B</a>'], 'a', {'x': '1'}, ret='x'), ['1', '1'])
 
-    #def test_x(self):
-    #    pass
-    #    #assert 0
-    #    #self.assertEqual(1, 2)
+    def test_case_sensitive_tag(self):
+        with self.subTest('Case sensitive: search a in a'):
+            self.assertEqual(dom_search('<a>A</a>', 'a'), ['A'])
+        with self.subTest('Case sensitive: search A in a'):
+            self.assertEqual(dom_search('<a>A</a>', 'A'), ['A'])
+        with self.subTest('Case sensitive: search a in A'):
+            self.assertEqual(dom_search('<A>A</A>', 'a'), ['A'])
+        with self.subTest('Case sensitive: search A in A'):
+            self.assertEqual(dom_search('<A>A</A>', 'A'), ['A'])
+
+    def test_case_sensitive_attr(self):
+        with self.subTest('Case sensitive: search x in x'):
+            self.assertEqual(dom_search('<a x="1">A</a>', 'a', {'x': True}), ['A'])
+        with self.subTest('Case sensitive: search X in x'):
+            self.assertEqual(dom_search('<a x="1">A</a>', 'a', {'x': True}), ['A'])
+        with self.subTest('Case sensitive: search x in X'):
+            self.assertEqual(dom_search('<a X="1">A</a>', 'a', {'x': True}), ['A'])
+        with self.subTest('Case sensitive: search X in X'):
+            self.assertEqual(dom_search('<a X="1">A</a>', 'a', {'x': True}), ['A'])
 
 
 

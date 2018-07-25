@@ -110,7 +110,7 @@ class TestDomSelect(TestCase):
         self.assertEqual(dom_select('<a><b><c>C</c></b></a>', 'a b'), [N('<c>C</c>', tag='b')])
         self.assertEqual(dom_select('<a><b><c>C</c></b></a>', 'a b c'), [N('C')])
 
-    def test_attrs(self):
+    def test_node_attrs(self):
         self.assertEqual(dom_select('<a>A</a>', 'a')[0].attrs, {})
         self.assertEqual(dom_select('<a x="1">A</a>', 'a')[0].attrs, {'x': '1'})
         self.assertEqual(dom_select('<a x="1" y="2">A</a>', 'a')[0].attrs, {'x': '1', 'y': '2'})
@@ -118,7 +118,7 @@ class TestDomSelect(TestCase):
         self.assertEqual(dom_select('<a x="1" x-y="2">A</a>', 'a')[0].attrs, {'x': '1', 'x-y': '2'})
         self.assertEqual(dom_select('<a x="1" y="2" x-y="3">A</a>', 'a')[0].attrs, {'x': '1', 'y': '2', 'x-y': '3'})
 
-    def test_attr(self):
+    def test_node_attr(self):
         self.assertRaises(AttributeError, getattr, dom_select('<a>A</a>', 'a')[0].attr, 'x')
         self.assertRaises(AttributeError, dom_select('<a>A</a>', 'a')[0].attr, 'x')
         self.assertEqual(dom_select('<a x="1">A</a>', 'a')[0].attr.x, '1')
@@ -128,7 +128,7 @@ class TestDomSelect(TestCase):
         self.assertEqual(dom_select('<a x="1" y="2">A</a>', 'a')[0].attr('y'), '2')
         self.assertEqual(dom_select('<a x-y="1">A</a>', 'a')[0].attr('x-y'), '1')
 
-    def test_data(self):
+    def test_node_data(self):
         self.assertRaises(AttributeError, getattr, dom_select('<a>A</a>', 'a')[0].data, 'x')
         self.assertRaises(AttributeError, dom_select('<a>A</a>', 'a')[0].data, 'x')
         self.assertRaises(AttributeError, getattr, dom_select('<a x="1">A</a>', 'a')[0].data, 'x')
@@ -142,4 +142,24 @@ class TestDomSelect(TestCase):
         self.assertEqual(dom_select('<a data-x="1" x="2">A</a>', 'a')[0].data.x, '1')
         self.assertEqual(dom_select('<a data-x="1" x="2">A</a>', 'a')[0].data('x'), '1')
         self.assertEqual(dom_select('<a data-x-y="1" x-y="2">A</a>', 'a')[0].data('x-y'), '1')
+
+    def test_case_sensitive_tag(self):
+        with self.subTest('Case sensitive: search a in a'):
+            self.assertEqual(dom_select('<a>A</a>', 'a'), [N('A')])
+        with self.subTest('Case sensitive: search A in a'):
+            self.assertEqual(dom_select('<a>A</a>', 'A'), [N('A')])
+        with self.subTest('Case sensitive: search a in A'):
+            self.assertEqual(dom_select('<A>A</A>', 'a'), [N('A', tag='A')])
+        with self.subTest('Case sensitive: search A in A'):
+            self.assertEqual(dom_select('<A>A</A>', 'A'), [N('A', tag='A')])
+
+    def test_case_sensitive_attr(self):
+        with self.subTest('Case sensitive: search x in x'):
+            self.assertEqual(dom_select('<a x="1">A</a>', '[x]'), [N('A', x='1')])
+        with self.subTest('Case sensitive: search X in x'):
+            self.assertEqual(dom_select('<a x="1">A</a>', '[X]'), [N('A', x='1')])
+        with self.subTest('Case sensitive: search x in X'):
+            self.assertEqual(dom_select('<a X="1">A</a>', '[x]'), [N('A', x='1')])
+        with self.subTest('Case sensitive: search X in X'):
+            self.assertEqual(dom_select('<a X="1">A</a>', '[X]'), [N('A', x='1')])
 
