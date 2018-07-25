@@ -31,6 +31,11 @@ html = '<a x="11" y="12">A1<b>B1</b><c>C1</c></a> <a x="21" y="22">A2<b>B2</b></
 Selektory
 ---------
 
+Pierwszy z brzegu kurs, gdzie wyjaśnione są selektory CSS – http://www.kurshtml.edu.pl/css/selektory.html
+
+Tutaj jest tylko namiasta tych mozliowści ale i tak pozwala to w miarę sprawnie wyłuskiwać dane.
+
+
 ### Obsługiwanie selektory
 
 Selektor     | Opis
@@ -173,7 +178,7 @@ Jeśli jest użyty choć jeden zwracana jest lista z żądanymi rzeczami.
 
 3. `A(x,y)::content` → `[x, y, 'A']`
 
-4. `A(x` → `[x]`
+4. `A(x)` → `[x]`
 
 
 To dlatego gdy pobierany jest jeden atrybut potrzeba dodatkowego wyłuskiwania. 
