@@ -65,31 +65,16 @@ class Selector(object):
         self.tag = tag or ''
         self.optional = False
         self.attrs, self.result, self.nodefilterlist = defaultdict(lambda: []), [], []
-        #self.param = param or []
-    if __name__ == '__main__':
-        def __repr__(self):
-            return '\033[36mS\033[0;2m(\033[0;4m{}{},{},F#{},{}\033[0;2m)\033[0m'.format(
-                self.tag, self.optional and '?' or '', dict(self.attrs),
-                len(self.nodefilterlist), self.result)
-
+        self.param = param or []
 
 class GroupSelector(list):
     r"""Main group selector (A, B)."""
-    if __name__ == '__main__':
-        def __repr__(self):
-            return '\033[36mG\033[0m' + list.__repr__(self)
 
 class DescendSelector(list):
     r"""Descending selector (A B)."""
-    if __name__ == '__main__':
-        def __repr__(self):
-            return '\033[36mD\033[0m' + list.__repr__(self)
 
 class AlternativeSelector(list):
     r"""Alternative selector ( {A, B} )."""
-    if __name__ == '__main__':
-        def __repr__(self):
-            return '\033[36mA\033[0m' + list.__repr__(self)
 
 
 class SelectorBuilder(object):
@@ -252,6 +237,16 @@ def parse(sel):
     builder = SelectorBuilder(tree)
     builder.build()
     return builder.out
+
+
+def set_debug_repr():
+    GroupSelector.__repr__ = lambda self: '\033[36mG\033[0m' + list.__repr__(self)
+    DescendSelector.__repr__ = lambda self: '\033[36mD\033[0m' + list.__repr__(self)
+    AlternativeSelector.__repr__ = lambda self: '\033[36mA\033[0m' + list.__repr__(self)
+    #Selector.__repr__ = lambda self: '\033[36mS\033[0;2m(\033[0;4m{}{},{},F#{},{}\033[0;2m)\033[0m'.format(
+    Selector.__repr__ = lambda self: '\033[36mS\033[0m(\033[0;2m{}{},{},F#{},{}\033[0m)\033[0m'.format(
+        self.tag, self.optional and '?' or '', dict(self.attrs),
+        len(self.nodefilterlist), self.result)
 
 
 if __name__ == '__main__':
