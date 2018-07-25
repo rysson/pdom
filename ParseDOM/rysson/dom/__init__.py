@@ -33,8 +33,8 @@ from .base import Node, DomMatch
 from .base import aWord, aWordStarts, aStarts, aEnds, aContains
 
 
-from .search import dom_search
-from .select import dom_select
+from .msearch import dom_search as search
+from .mselect import dom_select as select
 from .backward import parseDOM, parse_dom
 
 

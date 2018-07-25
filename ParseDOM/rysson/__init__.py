@@ -2,8 +2,8 @@
 from __future__ import absolute_import, division, unicode_literals, print_function
 
 from .dom import aWord, aWordStarts, aStarts, aEnds, aContains
-from .dom import dom_search
-from .dom import dom_select
+from .dom import search as dom_search
+from .dom import select as dom_select
 ## old
 from .dom import parseDOM, parse_dom
 

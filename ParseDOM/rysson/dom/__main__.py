@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, unicode_literals, print_function
 
-from .select import dom_select
+from .mselect import dom_select
 
 
 def main():

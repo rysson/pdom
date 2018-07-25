@@ -7,7 +7,7 @@ from .base import _make_html_list
 from .base import basestring, AttrDict
 from .base import Result, ResultParam, MissingAttr
 from .base import pats
-from .search import dom_search
+from .msearch import dom_search
 
 from .selectorparser import parse as parse_selector
 from .selectorparser import Selector, AlternativeSelector, GroupSelector

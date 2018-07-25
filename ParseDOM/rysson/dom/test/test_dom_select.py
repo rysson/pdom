@@ -5,9 +5,9 @@ from __future__ import absolute_import, division, unicode_literals, print_functi
 from .base import TestCase
 from unittest import skip as skiptest, skipIf as skiptestIf
 
-from ..dom import dom_select
-from ..dom import aWord, aWordStarts, aStarts, aEnds, aContains
-from ..dom import Node, DomMatch   # for test only
+from ..mselect import dom_select
+from ..base import aWord, aWordStarts, aStarts, aEnds, aContains
+from ..base import Node, DomMatch   # for test only
 
 
 class N(Node):
