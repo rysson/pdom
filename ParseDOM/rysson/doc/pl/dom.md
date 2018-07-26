@@ -2,6 +2,11 @@
 Nowa obsługa DOM
 ================
 
+Klasy i typy
+============
+
+[`Node`](dom-node.md) – opisuje węzeł HTML/XML, czyli jest to tag z zawartością.
+
 
 dom.search()
 ============

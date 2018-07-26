@@ -357,7 +357,7 @@ class Node(object):
         if tagindex is not None:
             self.ts, self.cs = tagindex
 
-    def preparse(self, item=None, tagindex=None, tagname=None):
+    def _preparse(self, item=None, tagindex=None, tagname=None):
         r"""
         Preparsing node. Find closing tag for given `name` tag.
 
@@ -392,7 +392,7 @@ class Node(object):
     def content(self):
         r"""Returns tag content (innerHTML)."""
         if not self.te:
-            self.preparse()
+            self._preparse()
         return self.item[self.cs : self.ce]
 
     innerHTML = content
@@ -401,7 +401,7 @@ class Node(object):
     def outerHTML(self):
         r"""Returns tag with content (outerHTML)."""
         if not self.te:
-            self.preparse()
+            self._preparse()
         return self.item[self.ts : self.te]
 
     @property
