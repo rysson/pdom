@@ -135,7 +135,7 @@ Tabela pokazuje co musi być raz parsowane przy dostęp danych.
 
 Dostęp      | Tag zamykający | Atrybuty | Dodatkowo
 ----------- | -------------- | -------- | --------
-`name`      | –              | –        | raz pobranie nazwy
+`name`      | –              | –        | raz pobranie nazwy¹
 `attrs`     | –              | +        |
 `content`   | +              | –        |
 `text`      | +              | –        | usuwanie tagów za każdym razem 
