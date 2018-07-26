@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, unicode_literals, print_functi
 from collections import defaultdict
 
 from .base import _make_html_list
-from .base import basestring, AttrDict
+from .base import base_str
 from .base import Result, ResultParam, MissingAttr
 from .base import pats
 from .msearch import dom_search
@@ -186,7 +186,7 @@ def dom_select(html, selectors):
     #
     #print(' --- search for "{}"'.format(selectors))
     ret = []
-    if isinstance(selectors, basestring):
+    if isinstance(selectors, base_str):
         ret = None
         selectors = [ selectors ]
 

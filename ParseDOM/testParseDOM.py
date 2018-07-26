@@ -10,11 +10,24 @@ import timeit as T
 import mrknow
 import cherry
 import rysson
+from rysson.dom import Node
+
+PY2 = sys.version_info < (3,0)
+PY3 = sys.version_info >= (3,0)
 
 type_str = type('')
 bytes_str = type(b'')
-if sys.version_info >= (3,0):
+if PY3:
     basestring = str
+
+
+class cls(object):
+    def __init__(self, C):
+        self._cls = C
+    def __str__(self):
+        return self._cls.__name__
+    def __repr__(self):
+        return self._cls.__name__
 
 
 def prepare_html():
@@ -30,26 +43,30 @@ def prepare_html():
 
 
 def check(fun, *args, **kwargs):
+    prepare_html = kwargs.pop('prepare_html', globals()['prepare_html'])
     line = []
     if args:
         line.append(', '.join(repr(a) for a in args))
     if kwargs:
         line.append(', '.join(str(k)+'='+repr(v) for k,v in kwargs.items()))
     line = ','.join(line)
-    py2_setup = 'from testParseDOM import *; html=prepare_html()'
-    html = prepare_html()
-    vars = globals()
-    vars.update(locals())
+    if PY2:
+        py2_setup = 'from testParseDOM import prepare_html,mrknow,cherry,rysson,Node; html=prepare_html()'
+    else:
+        html = prepare_html()
+        vars = globals()
+        vars.update(locals())
+    cmd = '{fun}(html, {line})'.format(fun=fun, line=line)
     for i in range(6):
         n = int(10**i)
         #check('mrknow.parseDOM', html, 'a')
-        cmd = '{fun}(html, {line})'.format(fun=fun, line=line)
-        if sys.version_info >= (3,0):
-            t = T.timeit(cmd, number=n, globals=vars)
+        if PY2:
+            t = T.timeit(cmd, py2_setup, number=n)
         else:
-            t = T.timeit(cmd, 'from testParseDOM import prepare_html,mrknow,cherry,rysson; html=prepare_html()', number=n)
+            t = T.timeit(cmd, number=n, globals=vars)
         if t > 0.2:
             return t / n
+    return t / n
 
 
 def test_pat_1(github=False):
@@ -105,18 +122,48 @@ if __name__ == '__main__':
     print('zażółć', 3/2, 3//2, type(''), type(b''), bytes, basestring)
     #test_pat_1(github=github)
 
-    html = prepare_html()
+    #html = prepare_html()
+
+    def html_attr():
+        return (('<a x="1">A</a>' * 999) + '<a x="1" y="2">') * 1000
+    if False:
+        print('-- search --')
+        print('attr -:   {t:.3f}'.format(t=check('rysson.dom_search', 'a', ret=cls(Node), prepare_html=html_attr)))
+        print('attr x:   {t:.3f}'.format(t=check('rysson.dom_search', 'a', {'x': True}, ret=cls(Node), prepare_html=html_attr)))
+        print('-- select --')
+        print('attr -:   {t:.3f}'.format(t=check('rysson.dom_select', 'a', prepare_html=html_attr)))
+        print('attr x:   {t:.3f}'.format(t=check('rysson.dom_select', 'a[x]', prepare_html=html_attr)))
+        print('attr x,y: {t:.3f}'.format(t=check('rysson.dom_select', 'a[x][y]', prepare_html=html_attr)))
+        print('attr y,x: {t:.3f}'.format(t=check('rysson.dom_select', 'a[y][x]', prepare_html=html_attr)))
+
+
+    def html_contains():
+        return ('<a>A' + ('<b>B</b>' * 999) + 'C</a>') * 1000
+    def html_contains_mass():
+        return '<a>A</a>' * 1000000
+    if False:
+        print('-- select --')
+        print('contains a:   {t:.3f}'.format(t=check('rysson.dom_select', 'a', prepare_html=html_contains))),
+        print('contains a.A: {t:.3f}'.format(t=check('rysson.dom_select', 'a:contains(A)', prepare_html=html_contains))),
+        print('contains a.C: {t:.3f}'.format(t=check('rysson.dom_select', 'a:contains(C)', prepare_html=html_contains))),
+        print('contains a.X: {t:.3f}'.format(t=check('rysson.dom_select', 'a:contains(X)', prepare_html=html_contains))),
+        print('  --mass a.A: {t:.3f}'.format(t=check('rysson.dom_select', 'a:contains(A)', prepare_html=html_contains_mass))),
+        print('  --mass a.X: {t:.3f}'.format(t=check('rysson.dom_select', 'a:contains(X)', prepare_html=html_contains_mass))),
+
 
     allmods = ('mrknow', 'cherry', 'rysson')
     mods = ('cherry', 'rysson')
+    print('-- compare modules {} --\n'.format(', '.join(allmods)))
     if github:
-        print('#### Python{py}\n\nTest | mrknow | cherry | rysson |\n----- | ----- | ----- | -----'.format(py=sys.version_info[0]))
-        print(' | '.join(['tags'] + list('{t:.3f}'.format(t=check(mod + '.parseDOM', 'a')) for mod in mods)))
-        print(' | '.join(['attrs'] + list('{t:.3f}'.format(t=check(mod + '.parseDOM', 'a', {'x': '1'})) for mod in mods)))
+        print('#### Python{py}\n\nTest  | mrknow | cherry | rysson |\n----- | ----- | ----- | -----'.format(py=sys.version_info[0]))
+        print(' | '.join(['tags '] + list('{t:.3f}'.format(t=check(mod + '.parseDOM', 'a')) for mod in allmods)))
+        print(' | '.join(['attrs'] + list('{t:.3f}'.format(t=check(mod + '.parseDOM', 'a', {'x': '1'})) for mod in allmods)))
+        print('> rysson.Node: {t:.3f}'.format(t=check('rysson.parseDOM', 'a', ret=cls(Node))))
     else:
         for mod in allmods:
             t = check(mod + '.parseDOM', 'a')
             print('Tag:  Python{py}, module: {mod}, time: {t:.3f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))
+        print('> rysson.Node: {t:.3f}'.format(t=check('rysson.parseDOM', 'a', ret=cls(Node))))
         for mod in allmods:
             t = check(mod + '.parseDOM', 'a', {'x': '1'})
             print('Attr: Python{py}, module: {mod}, time: {t:.3f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))
@@ -125,4 +172,5 @@ if __name__ == '__main__':
             print('Node: Python{py}, module: {mod}, time: {t:.3f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))
         for mod in 'rysson',:
             t = check(mod + '.dom_select', 'a')
-            print('Sel1: Python{py}, module: {mod}, time: {t:.3f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))
+            print('SelN: Python{py}, module: {mod}, time: {t:.3f} [s]'.format(py=sys.version_info[0], mod=mod, t=t))
+

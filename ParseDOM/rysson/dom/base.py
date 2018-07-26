@@ -10,11 +10,13 @@ try:
 except ImportError:
     Response = None
 
-if sys.version_info < (3,0):
-    type_str, type_bytes = unicode, str
+PY2 = sys.version_info < (3,0)
+
+if PY2:
+    type_str, type_bytes, base_str = unicode, str, basestring
     class Enum: pass
 else:
-    type_str, type_bytes, unicode, basestring = str, bytes, str, str
+    type_str, type_bytes, unicode, base_str = str, bytes, str, str
     from enum import Enum
 
 
@@ -35,6 +37,10 @@ class NoResult(list):
 # TODO move to separate module
 class AttrDict(dict):
     """dict() + attribute access"""
+    # Note: it's match slower than dict(): 480 ns vs. 40 ns
+
+    __slots__ = ()
+
     def __getattr__(self, key):
         try:
             return self[key]
@@ -77,9 +83,10 @@ class RoAttrDictView(object):
 regex = re.compile
 
 
-class Patterns(AttrDict):
+class Patterns(object):
     """All usefull patterns"""
     def __init__(self):
+        self._dict = {}
         pats = self
         pats.anyTag       = r'''[\w-]+'''
         pats.anyAttrVal   = r'''(?:=(?:[^\s/>'"]+|"[^"]*?"|'[^']*?'))?'''
@@ -107,29 +114,40 @@ class Patterns(AttrDict):
         #: Find single tag (with params).
         pats.sel_tag_re = re.compile(r'''(?P<tag>\w+)(?P<optional>\?)?(?P<attr1>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)?|(?P<attr2>[^\w\s](?:"[^"]*"|'[^']*'|[^"' ])*)''')
         #: Find params (id, class, attr and pseudo).
-        #pats.sel_attr_re = re.compile(r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?\]|(?P<pseudo>::?\w+)(?:\((?P<psarg1>\w+(?:,\s*\w+)*)\))?|(?:\((?P<psarg2>\w+(?:,\s*\w+)*)\))''')
         pats.sel_attr_re = re.compile(
             r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)''' \
             r'''(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?''' \
             r'''\]|(?P<pseudo>::?[-\w]+)(?:\((?P<psarg1>.*?)\))?''')
+
+    def __setattr__(self, key, val):
+        super(Patterns, self).__setattr__(key, val)
+        if not key.startswith('_'):
+            self._dict[key] = val
+
+    def __getitem__(self, key):
+        return self._dict[key]
+
+    def keys(self):
+        return self._dict.keys()
 
 
 class Regex(AttrDict):
     """All usefull regex (compiled patterns)."""
     def __init__(self, pats):
         self.__pats = pats
-    def __getitem__(self, key):
-        pat = self.__pat[key]
-        if isinstance(pat, basestring):
-            self[pat] = re.compile(pat)
+    def __missing__(self, key):
+        pat = self.__pats[key]
+        if isinstance(pat, base_str):
+            self[pat] = re.compile(pat, re.DOTALL)
             return self[pat]
         raise KeyError('No regex "{}"'.format(key))
 
 
 
 pats = Patterns()
-#regex = Regex(pats)
+regs = Regex(pats)   # not used now
 remove_tags_re = re.compile(pats.nodeTag)
+openCloseTag_re = re.compile(pats.openCloseTag, re.DOTALL)
 
 
 class DomMatch(namedtuple('DomMatch', ['attrs', 'content'])):
@@ -230,7 +248,7 @@ def _tostr(s):
             s =  s.decode("utf-8")
         except:
             pass
-    elif not isinstance(s, basestring):
+    elif not isinstance(s, base_str):
         s = str(s)
     return s
 
@@ -282,7 +300,7 @@ def find_node(name, match, item, ms, me):
 
     item[ts:cs] -- tag
     item[cs:ce] -- content, innerHTML
-    item[ce:te] -- closgin tag
+    item[ce:te] -- closing tag
     item[ts:te] -- whole tag, outerHTML
     """
     # Recover tag name (important for "*")
@@ -294,14 +312,16 @@ def find_node(name, match, item, ms, me):
     # find closing tag
     ce = ee = me
     tag_stack = [ tag ]
-    for r in re.compile(pats.openCloseTag, re.DOTALL).finditer(item, me):
-        d = AttrDict(r.groupdict())
-        if d.beg:
-            tag_stack.append(d.beg)
-        elif d.end:
+    #for r in re.compile(pats.openCloseTag, re.DOTALL).finditer(item, me):
+    #for r in regs.openCloseTag.finditer(item, me):
+    for r in openCloseTag_re.finditer(item, me):
+        d = r.groupdict()
+        if d['beg']:
+            tag_stack.append(d['beg'])
+        elif d['end']:
             while tag_stack:
-                tag_stack, last = tag_stack[:-1], tag_stack[-1]
-                if last == d.end:
+                last = tag_stack.pop()
+                if last == d['end']:
                     break
             if not tag_stack:
                 ce, ee = r.start(), r.end()

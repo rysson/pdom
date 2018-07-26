@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, unicode_literals, print_functi
 import re
 from inspect import isclass
 
+from .base import PY2
 from .base import NoResult, Result, MissingAttr
 from .base import regex, pats, remove_tags_re
 from .base import _tostr, _make_html_list, find_node
@@ -176,7 +177,11 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
             if separate:
                 ret_nodes.append(node)
             for ritem in ret:
-                ritem = rtype2enum.get(ritem, ritem)
+                if PY2:
+                    if type(ritem) is not int:
+                        ritem = rtype2enum.get(ritem, ritem)
+                else:
+                    ritem = rtype2enum.get(ritem, ritem)
                 #print('  -> ritem', ritem)
                 if ritem == Result.Node:
                     # Get full node (content and all attributes)
