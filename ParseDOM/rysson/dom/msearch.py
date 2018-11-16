@@ -9,6 +9,7 @@ from .base import NoResult, Result, MissingAttr
 from .base import regex, pats, remove_tags_re
 from .base import _tostr, _make_html_list, find_node
 from .base import Node, DomMatch
+from .base import isrealsequence
 
 
 
@@ -71,9 +72,10 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     """
     # Author: Robert Kalinowski <robert.kalinowski@sharkbits.com>
     #   Copyright (C) 2018 Robert Kalinowski
-    # Idea is taken form parseDOM() by Tobias Ussing and Henrik Jensen.
+    # Base idea is taken form parseDOM() by Tobias Ussing and Henrik Jensen.
 
-    #print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
+    print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
+    print('dom_search.HTML:', repr(html))  # XXX
     html = _make_html_list(html)
 
     if exclude_comments:
@@ -100,6 +102,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     ret_lst, ret_nodes = [], []
 
     # Get details about expected result type
+    retarg = ret
     try:
         separate = ret.separate
         sync = ret.sync
@@ -123,6 +126,13 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         sync_none = None if sync is True else sync
 
     for ii, item in enumerate(html):
+        if isrealsequence(item):
+            ...
+            #return [dom_search(subitem, name=name, attrs=attrs, ret=ret, exclude_comments=exclude_comments) for subitem in item]
+            kwargs = dict(name=name, attrs=attrs, ret=retarg, exclude_comments=exclude_comments)
+            ret_lst += [tuple(subret for subitem in item
+                              for subret in dom_search(subitem, **kwargs))]
+            continue
         if sync and item in (None, Result.RemoveItem):
             #print('search - None')
             ret_lst += [item]
@@ -211,7 +221,8 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                 retlstadd(lst2)
 
     if separate:
-        return ret_lst, ret_nodes
+        ret_lst =  ret_lst, ret_nodes
+    print('$$$', repr(ret_lst))  # XXX
     return ret_lst
 
 

@@ -50,7 +50,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
                 subpart.append(res2)
             #print('---')
             #print('Mix!!! P', part)
-            #print('MIX!!! S', subpart)
+            print('MIX!!! S', subpart)
             # append as columns as rows
             part = list(p for p in zip(*subpart) if Result.RemoveItem not in p)
             #print('MIX!!! P', part)
@@ -105,6 +105,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
         res += list(zip(*out_stack))
     else:
         res += part
+    print(f'dom_select() retutns: {res!r}')  # XXX
     return res
 
 

@@ -5,6 +5,7 @@ import sys
 import re
 from collections import defaultdict
 from collections import namedtuple
+from collections.abc import Sequence
 try:
     from requests import Response
 except ImportError:
@@ -18,6 +19,13 @@ if PY2:
 else:
     type_str, type_bytes, unicode, base_str = str, bytes, str, str
     from enum import Enum
+
+
+
+def isrealsequence(obj):
+    """True, if `obj' is sequence and not str or bytes."""
+    return not isinstance(obj, (type_str, type_bytes, DomMatch)) and isinstance(obj, Sequence)
+
 
 
 class NoResult(list):

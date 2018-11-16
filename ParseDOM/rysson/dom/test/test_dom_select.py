@@ -163,3 +163,34 @@ class TestDomSelect(TestCase):
         with self.subTest('Case sensitive: search X in X'):
             self.assertEqual(dom_select('<a X="1">A</a>', '[X]'), [N('A', x='1')])
 
+
+
+class TestDomSelectAlternative(TestCase):
+
+    def test_simple(self):
+        self.assertEqual(dom_select('<a>A</a><b>B</b>', '{a,b}'), [(N('A'), N('B'))])
+
+    def test_tag_alt(self):
+        self.assertEqual(dom_select('<a>A1<b>B</b>A2<c>C</c>A3</a>', 'a {b,c}'), [(N('B'), N('C'))])
+
+    def test_alt_tag(self):
+        self.assertEqual(dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2</b>', '{a,b} c'), [(N('C1'), N('C2'))])
+
+    def test_alt_tag2(self):
+        self.assertEqual(dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2<c>C3</c>B3</b>', '{a,b} c'),
+                         [(N('C1'), N('C2'), N('C3'))])
+
+    def test_alt_tag_desc(self):
+        self.assertEqual(dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2</b>', '{a c,b c}'), [(N('C1'), N('C2'))])
+
+    def test_alt_tag2_desc(self):
+        self.assertEqual(dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2<c>C3</c>B3</b>', '{a c,b c}'),
+                         [(N('C1'), N('C2'), N('C3'))])
+
+
+
+# Manual tests
+if __name__ == '__main__':
+    print(dom_select('<a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b>', '{a c,b c}, a'))
+    #print(dom_select('<a>A<c>C1</c><d>D1</d></a><b>B<c>C2</c><d>D1</d></b>', '{a,b} {c,d}, a'))
+
