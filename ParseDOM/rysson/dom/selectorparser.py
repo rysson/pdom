@@ -35,8 +35,8 @@ def param_sel():   return [ id_sel, class_sel, attr_sel, pseudo_sel ]
 def res_attr():    return "(", SP, val, ZeroOrMore(SP, ",", SP, val), SP, ")"
 def res_param():   return "::", ident, Optional(ZeroOrMoreValBr)
 def one_sel():     return [ (tag, Optional(opt_tag), ZeroOrMore(param_sel)), OneOrMore(param_sel) ], Optional(res_attr), ZeroOrMore(res_param)
-def alt_sel():     return "{", SP, desc_sel, ZeroOrMore(SP, ",", SP, desc_sel), SP, "}"
-def single_sel():  return [ one_sel, alt_sel ]
+def set_sel():     return "{", SP, desc_sel, ZeroOrMore(SP, ",", SP, desc_sel), SP, "}"
+def single_sel():  return [ one_sel, set_sel ]
 def desc_sel():    return single_sel, ZeroOrMore(space, single_sel)
 def selector():    return desc_sel, ZeroOrMore(SP, ",", SP, desc_sel), EOF
 
@@ -73,8 +73,8 @@ class GroupSelector(list):
 class DescendSelector(list):
     r"""Descending selector (A B)."""
 
-class AlternativeSelector(list):
-    r"""Alternative selector ( {A, B} )."""
+class SetSelector(list):
+    r"""Set selector ( {A, B} )."""
 
 
 class SelectorBuilder(object):
@@ -140,8 +140,8 @@ class SelectorBuilder(object):
             print('Entering Token', name)
         if name == 'desc_sel':
             self._list_enter(DescendSelector())
-        elif name == 'alt_sel':
-            self._list_enter(AlternativeSelector())
+        elif name == 'set_sel':
+            self._list_enter(SetSelector())
         elif name == 'one_sel':
             self._list_append(Selector())
         elif name == 'val':
@@ -155,7 +155,7 @@ class SelectorBuilder(object):
             print('Exiting Token', name)
         if name == 'desc_sel':
             self._list_exit()
-        elif name == 'alt_sel':
+        elif name == 'set_sel':
             self._list_exit()
         elif name == 'attr_sel':
             assert self._cur_ident is not None
@@ -242,7 +242,7 @@ def parse(sel):
 def set_debug_repr():
     GroupSelector.__repr__ = lambda self: '\033[36mG\033[0m' + list.__repr__(self)
     DescendSelector.__repr__ = lambda self: '\033[36mD\033[0m' + list.__repr__(self)
-    AlternativeSelector.__repr__ = lambda self: '\033[36mA\033[0m' + list.__repr__(self)
+    SetSelector.__repr__ = lambda self: '\033[36mA\033[0m' + list.__repr__(self)
     #Selector.__repr__ = lambda self: '\033[36mS\033[0;2m(\033[0;4m{}{},{},F#{},{}\033[0;2m)\033[0m'.format(
     Selector.__repr__ = lambda self: '\033[36mS\033[0m(\033[0;2m{}{},{},F#{},{}\033[0m)\033[0m'.format(
         self.tag, self.optional and '?' or '', dict(self.attrs),

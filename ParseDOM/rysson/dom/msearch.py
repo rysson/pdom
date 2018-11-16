@@ -74,8 +74,8 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     #   Copyright (C) 2018 Robert Kalinowski
     # Base idea is taken form parseDOM() by Tobias Ussing and Henrik Jensen.
 
-    print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
-    print('dom_search.HTML:', repr(html))  # XXX
+    #print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
+    #print('dom_search.HTML:', repr(html))  # XXX
     html = _make_html_list(html)
 
     if exclude_comments:
@@ -127,11 +127,10 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
 
     for ii, item in enumerate(html):
         if isrealsequence(item):
-            ...
-            #return [dom_search(subitem, name=name, attrs=attrs, ret=ret, exclude_comments=exclude_comments) for subitem in item]
             kwargs = dict(name=name, attrs=attrs, ret=retarg, exclude_comments=exclude_comments)
-            ret_lst += [tuple(subret for subitem in item
-                              for subret in dom_search(subitem, **kwargs))]
+            ret_lst += [dom_search(subitem, **kwargs) for subitem in item]
+            #ret_lst += [tuple(subret for subitem in item
+            #                  for subret in dom_search(subitem, **kwargs))]
             continue
         if sync and item in (None, Result.RemoveItem):
             #print('search - None')
@@ -222,7 +221,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
 
     if separate:
         ret_lst =  ret_lst, ret_nodes
-    print('$$$', repr(ret_lst))  # XXX
+    #print('$$$', repr(ret_lst))  # XXX
     return ret_lst
 
 

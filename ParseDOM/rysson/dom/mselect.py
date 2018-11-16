@@ -10,7 +10,7 @@ from .base import pats
 from .msearch import dom_search
 
 from .selectorparser import parse as parse_selector
-from .selectorparser import Selector, AlternativeSelector, GroupSelector
+from .selectorparser import Selector, SetSelector, GroupSelector
 
 
 # -------  DOM Select -------
@@ -35,12 +35,12 @@ def _select_desc(res, html, selectors_desc, sync=False):
     for single_selector in selectors_desc:
         #print('=======  SINGLE', single_selector)
         if isinstance(single_selector, list):
-            assert isinstance(single_selector, AlternativeSelector)
-            # subgroup of alterative nodes: " { A, B, ...} "
+            assert isinstance(single_selector, SetSelector)
+            # subgroup of set nodes: " { A, B, ...} "
             subhtml = list(part if tree is None else tree)
             subpart = [part] if tree else []
             for sel in single_selector:
-                #print('SEL-Alt', sel)
+                #print('SEL-SET', sel)
                 res2 = []
                 _select_desc(res2, subhtml, sel, sync=True)
                 #print('mix!!! sh', subhtml)
@@ -50,7 +50,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
                 subpart.append(res2)
             #print('---')
             #print('Mix!!! P', part)
-            print('MIX!!! S', subpart)
+            #print('MIX!!! S', subpart)
             # append as columns as rows
             part = list(p for p in zip(*subpart) if Result.RemoveItem not in p)
             #print('MIX!!! P', part)
@@ -105,15 +105,15 @@ def _select_desc(res, html, selectors_desc, sync=False):
         res += list(zip(*out_stack))
     else:
         res += part
-    print(f'dom_select() retutns: {res!r}')  # XXX
+    #print(f'dom_select() retutns: {res!r}')  # XXX
     return res
 
 
 def _select_group(res, html, group_selector):
-    # Go through alternative selector
+    # Go through set selector
     assert isinstance(group_selector, GroupSelector)
     for sel in group_selector:
-        #print('SEL-ALT', sel)
+        #print('SEL-SET', sel)
         _select_desc(res, html, sel)
 
 
@@ -147,8 +147,9 @@ def dom_select(html, selectors):
         - [attr*=val]  All elements with a attribute value containing `val`
 
     Extra selectors:
-        - { E1, E2 }     Alternative, E1 and/or E2 elements;
-                         If some alternative doesn't exists None is returned.
+        - { E1, E2 }   Set, E1 and E2 elements. All items must exist.
+                       If extra options (?) is used and some item
+                       doesn't exists None is returned.
 
     Pseudo elements are used to choise result:
         ::node      Returns Node(), it's default on last node
@@ -196,7 +197,7 @@ def dom_select(html, selectors):
     # all selector from list
     for selgrp in selectors:
         selgrp = parse_selector(selgrp)
-        # Go through alternative selector
+        # Go through set selector
         res = []  # All matches for single selector
         _select_group(res, html, selgrp)
         #print('RES', res)

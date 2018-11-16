@@ -440,6 +440,7 @@ class Node(object):
         return self.content
 
     def __repr__(self):
+        #return '\033[36mNode({name!r}, {attrs}, {content!r})\033[0m'.format(
         return 'Node({name!r}, {attrs}, {content!r})'.format(
             name=self.name, attrs=self.attrs, content=self.content)
 

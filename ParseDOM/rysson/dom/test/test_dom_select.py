@@ -174,23 +174,32 @@ class TestDomSelectAlternative(TestCase):
         self.assertEqual(dom_select('<a>A1<b>B</b>A2<c>C</c>A3</a>', 'a {b,c}'), [(N('B'), N('C'))])
 
     def test_alt_tag(self):
-        self.assertEqual(dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2</b>', '{a,b} c'), [(N('C1'), N('C2'))])
+        self.assertEqual(dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2</b>', '{a,b} c'), [[N('C1')], [N('C2')]])
 
     def test_alt_tag2(self):
         self.assertEqual(dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2<c>C3</c>B3</b>', '{a,b} c'),
-                         [(N('C1'), N('C2'), N('C3'))])
+                         [[N('C1')], [N('C2'), N('C3')]])
 
     def test_alt_tag_desc(self):
         self.assertEqual(dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2</b>', '{a c,b c}'), [(N('C1'), N('C2'))])
 
     def test_alt_tag2_desc(self):
         self.assertEqual(dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2<c>C3</c>B3</b>', '{a c,b c}'),
-                         [(N('C1'), N('C2'), N('C3'))])
+                         [(N('C1'), N('C2'))])
 
 
 
 # Manual tests
 if __name__ == '__main__':
-    print(dom_select('<a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b>', '{a c,b c}, a'))
+    #print(dom_select('<a>A<c>C0</c></a><a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c><b>B9</b>', '{a,b}'))
+    #print(dom_select('<a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c>', '{a,b}'))
+    print(dom_select('<a>A<c>C1</c></a><b>B<c>C2</c></b><c>Cx</c>', '{a,b} c, a'))
+    #print(dom_select('<a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c>', '{a,b} c, a'))
+    #print(dom_select('<a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c>', '{a c,b c}, a'))
+    #print(dom_select('<a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c>', '* c::node, a'))
+    #print(dom_select('<a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c>', '* c, a'))
     #print(dom_select('<a>A<c>C1</c><d>D1</d></a><b>B<c>C2</c><d>D1</d></b>', '{a,b} {c,d}, a'))
+
+    #print(dom_select('<a><b>B1</b><c>C1</c></a><a><b>B2</b></a>', 'a {b,c}'))
+    #print(dom_select('<a><b>B1<d>D1b</d></b><c>C1<d>D1c</d></c></a><a><b>B2<d>D2b</d></b></a>', 'a {b,c} d'))
 
