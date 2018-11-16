@@ -83,22 +83,22 @@ Poniższe selektory wychodzą poza standard CSS i jQuery.
 
 Selektor     | Opis
 -------------|------------
-{ E1, E2 }   | Alternatywa, zarówno E1 jaki i E2.
+{ E1, E2 }   | Zestaw, zarówno E1 jaki i E2.
 E1?          | Opcja, E1 albo None, gdy nie istnieje.
 
-Selektor alternatywy zwraca podlistę i dzięki temu pozwala złapać wiele elementów,
+Selektor zestaw zwraca podlistę i dzięki temu pozwala złapać wiele elementów,
 które są zawarte w nadrzędnym za pomocą jednego zapytania. 
-Jeśli któryś z elementów w selektorze alternatywnym jest opcjonalny, to zwrócone
+Jeśli któryś z elementów w selektorze zestawu jest opcjonalny, to zwrócone
 zostanie None w tej samej pozycji, w której brakuje elementu.
 
-Element opcjonalny jest użyteczny w selektorze alternatywnym. 
+Element opcjonalny jest użyteczny w selektorze zestawu. 
 Zwracane jest None na odpowiedniej pozycji dzięki czemu łatwiej takie zapytanie
 przetwarzać w pętli for.
 
 
 #### Przykłady
 
-##### Alternatywa
+##### Zestaw
 
 ```python
 for b, c in dom_select(html, 'a {b, c}'):
@@ -110,7 +110,7 @@ for b, c in dom_select(html, 'a {b, c}'):
 Złapało tylko jedną linię, bo drugi tag `a` nie posiada `c`.
 
 
-##### Alternatywa z opcją
+##### Zestaw z opcją
 
 ```python
 for b, c in dom_select(html, 'a {b, c?}'):
@@ -202,7 +202,7 @@ for (x,) in dom.select(html, 'a(x)'):
 
 #### Przykłady
 
-##### Węzeł rodzica z dwoma potomkami (alternatywa) z czego jeden opcjonalny
+##### Węzeł rodzica z dwoma potomkami (zestaw) z czego jeden opcjonalny
 
 ```python
 for (a,), b, c in dom_select(html, 'a::node {b, c?}'):

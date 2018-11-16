@@ -65,14 +65,14 @@ Match all tag B inside tag A.
 
 Selector     | Description
 -------------|------------
-{ E1, E2 }   | Alternative, E1 and E2 elements as sublist.
+{ E1, E2 }   | Set, E1 and E2 elements as sublist.
 E1?          | Optional element, None is returned if element is missing.
 
-Alternative selector returns a sublist and can select many elements inside given parent.
+Set selector returns a sublist and can select many elements inside given parent.
 If some optional element doesn't exists None is returned.
 
-Optional element is usefull in alternatives. You get None insteed of missing element
-but rest of alternative elements are returned.
+Optional element is usefull in set. You get None insteed of missing element
+but rest of set elements are returned.
 
 
 #### Examples
@@ -89,7 +89,7 @@ for b in dom_select(html, 'a b'):
 Match all tag B inside tag A.
 
 
-##### Alternatives
+##### Set
 
 ```python
 for b, c in dom_select(html, 'a {b, c}'):
@@ -100,7 +100,7 @@ for b, c in dom_select(html, 'a {b, c}'):
 Tag A has to contains B and C, both are returned. Second A tag are omitedd because C is missing.
 
 
-##### Alternatives and optional
+##### Sets and optional
 
 ```python
 for b, c in dom_select(html, 'a {b, c?}'):
@@ -166,7 +166,7 @@ Selector     | Description
 
 #### Examples
 
-##### Parent node with alternatives and optional
+##### Parent node with set and optional
 
 ```python
 for (a,), b, c in dom_select(html, 'a::node {b, c?}'):
