@@ -84,10 +84,11 @@ for b in dom_select(html, 'a b'):
 
 Poniższe selektory wychodzą poza standard CSS i jQuery.
 
-Selektor     | Opis
--------------|------------
-{ E1, E2 }   | Zestaw, zarówno E1 jaki i E2.
-E1?          | Opcja, E1 albo None, gdy nie istnieje.
+Selektor       | Opis
+---------------|------------
+{ E1, E2 }     | Zestaw, zarówno E1 jaki i E2.
+E1?            | Opcja, E1 albo None, gdy nie istnieje.
+{ E1:N, ... }  | N-te wystapienie E1 w zestawie.
 
 Selektor zestaw zwraca podlistę i dzięki temu pozwala złapać wiele elementów,
 które są zawarte w nadrzędnym za pomocą jednego zapytania. 
@@ -139,6 +140,31 @@ Film 'Piękny film, który...' http://tam/ 'Piękny film, który...'
 ```
 
 __Uwaga:__ stary zestaw `{{ }}` jest do usunięcia.
+
+
+##### Powtórzenia numerowane
+
+Można wybrać, które powtórzenia mają się znaleźć w wyniku.
+
+Z przykładu wyżej selektor `{p:2}` zwróci tylko opisy filmów.
+
+Jeśli brak numeru to uzyty jest zawsze o jeden większy niż poprzednio dla takiego samego selektora, czyli:
+
+```html
+<div>
+  <p>Tytuł</p>
+  <p>Rok</p>
+  <a href="/gatunki">Gatunek</a>
+  <p>Opis</p>
+  <a href="/patrz">Oglądaj</a>
+</div>
+```
+
+Z `div {p, p, a:2}` daje `Tytuł` (p1), `Rok` (p2), `Oglądaj` (a2).
+
+Z `div {p:3, p:1, p, a:2}` daje `Opis` (p3), `Tytuł` (p1), `Rok` (p2), `Oglądaj` (a2).
+
+Z `div {p:2, a, p, a, p:1}` daje `Rok` (p2), `Gatunek` (a1), `Opis` (p3), `Oglądaj` (a2), `Tytuł` (p1).
 
 
 ##### Zestaw z opcją

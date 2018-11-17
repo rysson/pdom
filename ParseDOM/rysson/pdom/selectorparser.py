@@ -62,14 +62,20 @@ def dump(tree, lvl=0, path=None):
         print(' = >>>\033[1;44m{}\033[0m<<<'.format(tree.value))
 
 
+#
+# TODO:  Remove __hash__ functions.
+#        Add custom names for part-hash (hash only for search, not whole object).
+#
+
 class Selector(object):
     r"""Single selector (tag, attributes, psudo-elements etc.)."""
-    def __init__(self, tag=None, param=None, result=None):
+    def __init__(self, tag=None, param=None, result=None, nth=None):
         self.tag = tag or ''
         self.optional = False
         self.attrs, self.result, self.nodefilterlist = defaultdict(lambda: []), [], []
         self.param = [] if param is None else list(param)
         self._hash = None
+        self.nth = nth
     def __repr__(self):
         return 'Selector(tag={tag!r}, param={param}, result={result})'.format(**vars(self))
     def __hash__(self):
@@ -188,11 +194,14 @@ class SelectorBuilder(object):
                 raise KeyError('Attribute selector "{op}" is not supported'.format(op=self._cur_val))
         elif name == 'pseudo_sel':
             assert self._cur_ident is not None
-            try:
-                fun = getattr(self, '_pseudo_' + self._cur_ident.replace('-', '_'))
-            except AttributeError:
-                raise KeyError('Pseudo-class "{op}" is not supported'.format(op=self._cur_ident))
-            self.sel.nodefilterlist.append(fun(self._cur_val))
+            if self._cur_ident.isdigit():
+                self.sel.nth = int(self._cur_ident)
+            else:
+                try:
+                    fun = getattr(self, '_pseudo_' + self._cur_ident.replace('-', '_'))
+                except AttributeError:
+                    raise KeyError('Pseudo-class "{op}" is not supported'.format(op=self._cur_ident))
+                self.sel.nodefilterlist.append(fun(self._cur_val))
         elif (name == 'res_param' and self._cur_ident == 'attr') or name == 'res_attr':
             if not self._cur_vals:
                 raise IndexError('::attr() needs at least one attribute name')

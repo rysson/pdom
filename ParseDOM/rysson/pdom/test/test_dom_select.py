@@ -165,7 +165,7 @@ class TestDomSelect(TestCase):
 
 
 
-class TestDomSelectAlternative(TestCase):
+class TestDomSelectSet(TestCase):
 
     def test_simple(self):
         self.assertEqual(dom_select('<a>A</a><b>B</b>', '{a,b}'), [(N('A'), N('B'))])
@@ -192,6 +192,14 @@ class TestDomSelectAlternative(TestCase):
 
     def test_multi_old_first(self):
         self.assertEqual(dom_select('<a>A1</a><a>A2</a>', '{{a,a}}'), [(N('A1'), N('A1')), (N('A2'), N('A2'))])
+
+    def test_nth(self):
+        self.assertEqual(dom_select('<a>A1</a><a>A2</a>', '{a:1,a}'), [(N('A1'), N('A2'))])
+        self.assertEqual(dom_select('<a>A1</a><a>A2</a>', '{a:2,a:1}'), [(N('A2'), N('A1'))])
+
+    def test_nth2(self):
+        self.assertEqual(dom_select('<a>A1</a><a>A2</a><b>B1</b><b>B2</b>', '{a:1,a,b}'), [(N('A1'), N('A2'), N('B1'))])
+        self.assertEqual(dom_select('<a>A1</a><a>A2</a><b>B1</b><b>B2</b>', '{a:1,a,b:2}'), [(N('A1'), N('A2'), N('B2'))])
 
 
 

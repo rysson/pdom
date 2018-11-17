@@ -63,10 +63,11 @@ Match all tag B inside tag A.
 
 ### Extra selectors
 
-Selector     | Description
--------------|------------
-{ E1, E2 }   | Set, E1 and E2 elements as sublist.
-E1?          | Optional element, None is returned if element is missing.
+Selector       | Description
+---------------|------------
+{ E1, E2 }     | Set, E1 and E2 elements as sublist.
+E1?            | Optional element, None is returned if element is missing.
+{ E1:N, ... }  | Nth occurence of E1 element.
 
 Set selector returns a sublist and can select many elements inside given parent.
 If some optional element doesn't exists None is returned.

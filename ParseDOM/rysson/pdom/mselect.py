@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, unicode_literals, print_functi
 from collections import defaultdict
 
 from .base import _make_html_list
-from .base import base_str
+from .base import base_str, PY2
 from .base import Result, ResultParam, MissingAttr
 from .base import pats
 from .msearch import dom_search
@@ -14,6 +14,15 @@ from .selectorparser import Selector, SetSelector, OrderedSetSelector, GroupSele
 
 
 # -------  DOM Select -------
+
+
+class SetSelPartData:
+    def __init__(self, res):
+        self.nth = 1
+        if PY2:
+            self.res = res
+        else:
+            self.res = list(res)
 
 
 def _select_desc(res, html, selectors_desc, sync=False):
@@ -47,19 +56,27 @@ def _select_desc(res, html, selectors_desc, sync=False):
                     #print('SEL-SET', sel, hash(sel), selhash in used, used)
                     if selhash in used:
                         res2 = used[selhash]
+                        res2.nth += 1  # auto nth
                     else:
                         #res2 = []
                         #_select_desc(res2, subhtml, sel, sync=True)
                         res2 = [_select_desc([], sub2html, sel, sync=True) for sub2html in subhtml]
-                        res2 = list(zip(*res2))
+                        res2 = SetSelPartData(zip(*res2))  # nth, res2
                         #print('mix!!! SH', subhtml)
                         #print('mix!!! SR', res2)
                         used[selhash] = res2
                     #print('mix!!! sh', subhtml)
                     #print('mix!!! sr', res2)
+
+                    look = sel[-1] if isinstance(sel, list) and sel else sel
+                    nth = look.nth if isinstance(look, Selector) and look.nth else res2.nth
+                    res2.nth = nth
                     if not res2:
-                        return
-                    res2 = res2.pop(0)
+                        return []
+                    try:
+                        res2 = res2.res[nth - 1]
+                    except IndexError:
+                        return []
                     #print('mix!!! sr0', res2)
                     subpart.append(res2)
                     #print('mix!!! sbP', subpart)
@@ -72,7 +89,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
                     #print('mix!!! sh', subhtml)
                     #print('mix!!! sr', res2)
                     if not res2:
-                        return
+                        return []
                     subpart.append(res2)
             #print('---')
             #print('Mix!!! P', part)
@@ -262,5 +279,10 @@ if __name__ == '__main__':
 
     if 0:
         for row in dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2</b>', '{a,b} c'):
+            printres(row)
+
+    if 0:
+        #for row in dom_select('<a>A1</a><a>A2</a><a>A3</a><b>B1</b><b>B2</b>', '{a:2,a:1,a,a,b:2}'):
+        for row in dom_select('<a><b>B1</b><c>C1</c><b>B2</b><c>C2</c></a>', '{a b:2, a c:2, a c:1}'):
             printres(row)
 
