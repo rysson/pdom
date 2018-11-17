@@ -10,7 +10,7 @@ import timeit as T
 import mrknow
 import cherry
 import rysson
-from rysson.dom import Node
+from rysson.pdom import Node
 
 PY2 = sys.version_info < (3,0)
 PY3 = sys.version_info >= (3,0)

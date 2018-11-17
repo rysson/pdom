@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, unicode_literals, print_function
 
-from .dom import aWord, aWordStarts, aStarts, aEnds, aContains
-from .dom import search as dom_search
-from .dom import select as dom_select
+from .pdom import aWord, aWordStarts, aStarts, aEnds, aContains
+from .pdom import search as dom_search
+from .pdom import select as dom_select
 ## old
-from .dom import parseDOM, parse_dom
+from .pdom import parseDOM, parse_dom
 

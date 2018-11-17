@@ -17,14 +17,8 @@ try:
 except ImportError:
     Response = None
 
-if sys.version_info < (3,0):
-    type_str, type_bytes = unicode, str
-    class Enum: pass
-else:
-    type_str, type_bytes, unicode, basestring = str, bytes, str, str
-    from enum import Enum
 
-
+from .base import type_str, type_bytes, Enum
 from .base import AttrDict, RoAttrDictView
 from .base import NoResult, Result, MissingAttr, ResultParam
 from .base import regex, pats, remove_tags_re
