@@ -2,13 +2,16 @@
 Nowa obsługa DOM
 ================
 
+Początkujący mogą przejrzeć pewne [podstawy](podstawy.md).
+
+
 Klasy i typy
 ============
 
 [`Node`](dom-node.md) – opisuje węzeł HTML/XML, czyli jest to tag z zawartością.
 
 
-dom.search()
+pdom.search()
 ============
 
 Funkcja parsuje HTML/XML, znajduje tagi z atrybutami
@@ -16,7 +19,7 @@ i zwraca te pasujące wraz z żadaną zawartością
 czy to tekst, atrybuty, czy węzeł Node().
 
 
-dom.select()
+pdom.select()
 ============
 
 Przeszukiwanie (wybieranie) danych z HTML na wzór uproszczonych 
@@ -219,11 +222,11 @@ Poniżej porównanie przypadków 1 i 4 i wypisania atrybutu *x*.
 
 ```python
 # 1.
-for a in dom.select(html, 'a'):
+for a in pdom.select(html, 'a'):
     print(a.x)
 
 # 4.
-for (x,) in dom.select(html, 'a(x)'):
+for (x,) in pdom.select(html, 'a(x)'):
     print(x)
 ```
 
