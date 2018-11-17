@@ -2,6 +2,8 @@
 from __future__ import absolute_import, division, unicode_literals, print_function
 
 from collections import defaultdict
+from functools import reduce
+from operator import xor
 
 from .base import aWord, aWordStarts, aStarts, aEnds, aContains
 from .base import s_attrSelectors, s_resSelectors, pats, regex
@@ -35,8 +37,9 @@ def param_sel():   return [ id_sel, class_sel, attr_sel, pseudo_sel ]
 def res_attr():    return "(", SP, val, ZeroOrMore(SP, ",", SP, val), SP, ")"
 def res_param():   return "::", ident, Optional(ZeroOrMoreValBr)
 def one_sel():     return [ (tag, Optional(opt_tag), ZeroOrMore(param_sel)), OneOrMore(param_sel) ], Optional(res_attr), ZeroOrMore(res_param)
-def set_sel():     return "{", SP, desc_sel, ZeroOrMore(SP, ",", SP, desc_sel), SP, "}"
-def single_sel():  return [ one_sel, set_sel ]
+def oset_sel():    return "{", SP, desc_sel, ZeroOrMore(SP, ",", SP, desc_sel), SP, "}"
+def set_sel():     return "{{", SP, desc_sel, ZeroOrMore(SP, ",", SP, desc_sel), SP, "}}"
+def single_sel():  return [ one_sel, set_sel, oset_sel ]
 def desc_sel():    return single_sel, ZeroOrMore(space, single_sel)
 def selector():    return desc_sel, ZeroOrMore(SP, ",", SP, desc_sel), EOF
 
@@ -65,16 +68,34 @@ class Selector(object):
         self.tag = tag or ''
         self.optional = False
         self.attrs, self.result, self.nodefilterlist = defaultdict(lambda: []), [], []
-        self.param = param or []
+        self.param = [] if param is None else list(param)
+        self._hash = None
+    def __repr__(self):
+        return 'Selector(tag={tag!r}, param={param}, result={result})'.format(**vars(self))
+    def __hash__(self):
+        if self._hash is None:
+            self._hash = hash(self.tag) ^ hash(self.optional) ^ \
+                    hash(tuple(sorted(self.attrs.items()))) ^ \
+                    hash(tuple(self.result)) ^ hash(tuple(self.nodefilterlist))
+        return self._hash
 
 class GroupSelector(list):
     r"""Main group selector (A, B)."""
+    def __hash__(self):
+        return reduce(xor, map(hash, self))
 
 class DescendSelector(list):
     r"""Descending selector (A B)."""
+    def __hash__(self):
+        return reduce(xor, map(hash, self))
 
 class SetSelector(list):
     r"""Set selector ( {A, B} )."""
+    def __hash__(self):
+        return reduce(xor, map(hash, self))
+
+class OrderedSetSelector(SetSelector):
+    r"""Ordered set selector ( {(A, B)} )."""
 
 
 class SelectorBuilder(object):
@@ -142,6 +163,8 @@ class SelectorBuilder(object):
             self._list_enter(DescendSelector())
         elif name == 'set_sel':
             self._list_enter(SetSelector())
+        elif name == 'oset_sel':
+            self._list_enter(OrderedSetSelector())
         elif name == 'one_sel':
             self._list_append(Selector())
         elif name == 'val':
@@ -155,7 +178,7 @@ class SelectorBuilder(object):
             print('Exiting Token', name)
         if name == 'desc_sel':
             self._list_exit()
-        elif name == 'set_sel':
+        elif name in ('set_sel', 'oset_sel'):
             self._list_exit()
         elif name == 'attr_sel':
             assert self._cur_ident is not None

@@ -5,7 +5,6 @@ import sys
 import re
 from collections import defaultdict
 from collections import namedtuple
-from collections.abc import Sequence
 try:
     from requests import Response
 except ImportError:
@@ -14,9 +13,11 @@ except ImportError:
 PY2 = sys.version_info < (3,0)
 
 if PY2:
+    from collections import Sequence
     type_str, type_bytes, base_str = unicode, str, basestring
     class Enum: pass
 else:
+    from collections.abc import Sequence
     type_str, type_bytes, unicode, base_str = str, bytes, str, str
     from enum import Enum
 

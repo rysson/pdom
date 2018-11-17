@@ -187,6 +187,12 @@ class TestDomSelectAlternative(TestCase):
         self.assertEqual(dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2<c>C3</c>B3</b>', '{a c,b c}'),
                          [(N('C1'), N('C2'))])
 
+    def test_multi(self):
+        self.assertEqual(dom_select('<a>A1</a><a>A2</a>', '{a,a}'), [(N('A1'), N('A2'))])
+
+    def test_multi_old_first(self):
+        self.assertEqual(dom_select('<a>A1</a><a>A2</a>', '{{a,a}}'), [(N('A1'), N('A1')), (N('A2'), N('A2'))])
+
 
 
 # Manual tests

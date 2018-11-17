@@ -10,7 +10,7 @@ from .base import pats
 from .msearch import dom_search
 
 from .selectorparser import parse as parse_selector
-from .selectorparser import Selector, SetSelector, GroupSelector
+from .selectorparser import Selector, SetSelector, OrderedSetSelector, GroupSelector
 
 
 # -------  DOM Select -------
@@ -32,22 +32,43 @@ def _select_desc(res, html, selectors_desc, sync=False):
     """
     part, tree, out_stack = html, None, []
     # Go through descending selector
+    #print('=======  SINGLE LIST', selectors_desc.__class__.__name__, selectors_desc)
     for single_selector in selectors_desc:
-        #print('=======  SINGLE', single_selector)
+        #print('=======  SINGLE', single_selector.__class__.__name__, single_selector)
         if isinstance(single_selector, list):
             assert isinstance(single_selector, SetSelector)
             # subgroup of set nodes: " { A, B, ...} "
             subhtml = list(part if tree is None else tree)
             subpart = [part] if tree else []
-            for sel in single_selector:
-                #print('SEL-SET', sel)
-                res2 = []
-                _select_desc(res2, subhtml, sel, sync=True)
-                #print('mix!!! sh', subhtml)
-                #print('mix!!! sr', res2)
-                if not res2:
-                    return
-                subpart.append(res2)
+            if isinstance(single_selector, OrderedSetSelector):
+                used = {}
+                for sel in single_selector:
+                    selhash = hash(sel)
+                    #print('SEL-SET', sel, hash(sel), selhash in used, used)
+                    if selhash in used:
+                        res2 = used[selhash]
+                    else:
+                        res2 = []
+                        _select_desc(res2, subhtml, sel, sync=True)
+                        used[selhash] = res2
+                    #print('mix!!! sh', subhtml)
+                    #print('mix!!! sr', res2)
+                    if not res2:
+                        return
+                    res2 = [res2.pop(0)]
+                    #print('mix!!! sr0', res2)
+                    subpart.append(res2)
+            else:
+                # non-ordered set selector, always find first
+                for sel in single_selector:
+                    #print('SEL-SET', sel)
+                    res2 = []
+                    _select_desc(res2, subhtml, sel, sync=True)
+                    #print('mix!!! sh', subhtml)
+                    #print('mix!!! sr', res2)
+                    if not res2:
+                        return
+                    subpart.append(res2)
             #print('---')
             #print('Mix!!! P', part)
             #print('MIX!!! S', subpart)
@@ -213,14 +234,24 @@ if __name__ == '__main__':
     def printres(*args):
         print('\033[33;1m>\033[0m', *args, sep=' \033[33m|\033[0m ', end=' \033[33m|\033[0m\n')
 
-    html = '<a x="11" y="12">A1<b>B1</b><c>C1</c></a> <a x="21" y="22">A2<b>B2</b><cc/></a>'
+    if 0:
+        html = '<a x="11" y="12">A1<b>B1</b><c>C1</c></a> <a x="21" y="22">A2<b>B2</b><cc/></a>'
 
-    for (a,), b, c in dom_select(html, 'a::node {b, c?}'):
-        print(a.text, b.text, c and c.text)
-    print('-')
-    for row in dom_select(html, ':has(b)'):
-        printres(row)
-    print('-')
-    for row in dom_select('<a x="1">A</a>', '[x]'):
-        printres(row)
+        for (a,), b, c in dom_select(html, 'a::node {b, c?}'):
+            print(a.text, b.text, c and c.text)
+        print('-')
+        for row in dom_select(html, ':has(b)'):
+            printres(row)
+        print('-')
+        for row in dom_select('<a x="1">A</a>', '[x]'):
+            printres(row)
+
+    if 0:
+        html = '<a><b>B1</b><c>C1</c><b>B2</b></a>'
+        for row in dom_select(html, 'a {b, b, c}'):
+            printres(row)
+
+    if 1:
+        for row in dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2</b>', '{a,b} c'):
+            printres(row)
 

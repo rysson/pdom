@@ -109,6 +109,34 @@ for b, c in dom_select(html, 'a {b, c}'):
 Łapie tagi `b` i `c`, które są zawarte w `a`.
 Złapało tylko jedną linię, bo drugi tag `a` nie posiada `c`.
 
+##### Powtórzenia
+
+Gdy selektor w zestawie powtarza się wyszukiwane jest kolejne wystąpienie (tutaj 2x `p`), np. dla html:
+
+```html
+<p>Tytuł</p>
+<a href="http://tam/">oglądaj</a>
+<p>Piękny film, który..."</p>
+```
+
+```python
+for title, descr, link in dom_select(html, '{p p a}'):
+    print('Film {title!r} {link.href}: {descr!r}'.format(**locals()))
+```
+
+```
+Film 'Tytuł' http://tam/ 'Piękny film, który...'
+```
+
+
+Aby zachować stare działanie trzeba użyć `{{p p a}}`, wtedy dostajemy to w dziwnej postaci:
+```
+Film 'Tytuł' http://tam/ 'Tytuł'
+Film 'Piękny film, który...' http://tam/ 'Piękny film, który...'
+```
+
+__Uwaga:__ stary zestaw `{{ }}` jest do usunięcia.
+
 
 ##### Zestaw z opcją
 
