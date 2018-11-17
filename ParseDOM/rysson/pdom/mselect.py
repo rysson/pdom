@@ -48,16 +48,21 @@ def _select_desc(res, html, selectors_desc, sync=False):
                     if selhash in used:
                         res2 = used[selhash]
                     else:
-                        res2 = []
-                        _select_desc(res2, subhtml, sel, sync=True)
+                        #res2 = []
+                        #_select_desc(res2, subhtml, sel, sync=True)
+                        res2 = [_select_desc([], sub2html, sel, sync=True) for sub2html in subhtml]
+                        res2 = list(zip(*res2))
+                        #print('mix!!! SH', subhtml)
+                        #print('mix!!! SR', res2)
                         used[selhash] = res2
                     #print('mix!!! sh', subhtml)
                     #print('mix!!! sr', res2)
                     if not res2:
                         return
-                    res2 = [res2.pop(0)]
+                    res2 = res2.pop(0)
                     #print('mix!!! sr0', res2)
                     subpart.append(res2)
+                    #print('mix!!! sbP', subpart)
             else:
                 # non-ordered set selector, always find first
                 for sel in single_selector:
@@ -72,7 +77,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
             #print('---')
             #print('Mix!!! P', part)
             #print('MIX!!! S', subpart)
-            # append as columns as rows
+            # append columns as rows
             part = list(p for p in zip(*subpart) if Result.RemoveItem not in p)
             #print('MIX!!! P', part)
             continue
@@ -106,7 +111,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
             #print('PART', list(zip(part, tree)))
             #res += list(zip(res, part))
         else:
-            #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, ret={dict(attrs)}, sync={rsync})')
+            #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, attrs={dict(sel.attrs)}, sync={rsync})')
             part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(sel.attrs),
                                     ret=ResultParam(Result.Node, sync=rsync, nodefilter=nodefilter)), None
             if not part:
@@ -231,6 +236,9 @@ def dom_select(html, selectors):
 
 
 if __name__ == '__main__':
+
+    # DEBUG only, Do NOT use it
+
     def printres(*args):
         print('\033[33;1m>\033[0m', *args, sep=' \033[33m|\033[0m ', end=' \033[33m|\033[0m\n')
 
@@ -247,11 +255,12 @@ if __name__ == '__main__':
             printres(row)
 
     if 0:
-        html = '<a><b>B1</b><c>C1</c><b>B2</b></a>'
+        #html = '<a><b>B1</b><c>C1</c><b>B2</b></a>'
+        html = '<a><b>B1</b><c>C1</c><b>B2</b></a> <a><b>B21</b><c>C21</c><b>B22</b></a>'
         for row in dom_select(html, 'a {b, b, c}'):
             printres(row)
 
-    if 1:
+    if 0:
         for row in dom_select('<a>A1<c>C1</c>A2</a>X<b>B1<c>C2</c>B2</b>', '{a,b} c'):
             printres(row)
 

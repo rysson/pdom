@@ -75,8 +75,8 @@ class Selector(object):
     def __hash__(self):
         if self._hash is None:
             self._hash = hash(self.tag) ^ hash(self.optional) ^ \
-                    hash(tuple(sorted(self.attrs.items()))) ^ \
-                    hash(tuple(self.result)) ^ hash(tuple(self.nodefilterlist))
+                    hash(str(sorted(self.attrs.items()))) ^ \
+                    hash(str(self.result)) ^ hash(str(self.nodefilterlist))
         return self._hash
 
 class GroupSelector(list):
