@@ -60,18 +60,18 @@ Weźmy fragment HTML:
 Chcemy wskazać `h1`, to selektor jest... `h1`. 
 Magia nie? Po prostu nazwa znacznika (taga) jest jego selektorem.
 
-> __Mój nagłówek__
-> Pierwszy akapit.
-> Drugi akapit – grubo i _pochyło_.
-> Ekstra _akapit_.
+> __Mój nagłówek__ \
+> Pierwszy akapit. \
+> Drugi akapit – grubo i _pochyło_. \
+> Ekstra _akapit_. \
 > pa
 
 Selektor znacznika wybiera wszystkie elementy, Czyli dla `p` mamy:
 
-> Mój nagłówek
-> __Pierwszy akapit.__
-> __Drugi akapit – grubo i _pochyło_.__
-> __Ekstra _akapit_.__
+> Mój nagłówek \
+> __Pierwszy akapit.__ \
+> __Drugi akapit – grubo i _pochyło_.__ \
+> __Ekstra _akapit_.__ \
 > pa
 
 ##### id
@@ -79,10 +79,10 @@ Selektor znacznika wybiera wszystkie elementy, Czyli dla `p` mamy:
 Możemy zaznaczyć po ID, czyli ten element (powinien być unikalny), którego nazwa jest w atrybucie `id=""`.
 Dla selektora `#pierwszy` jak i `p#pierwszy` mamy:
 
-> Mój nagłówek
-> __Pierwszy akapit.__
-> Drugi akapit – grubo i _pochyło_.
-> Ekstra _akapit_.
+> Mój nagłówek \
+> __Pierwszy akapit.__ \
+> Drugi akapit – grubo i _pochyło_. \
+> Ekstra _akapit_. \
 > pa
 
 Za to `div#pierwszy` nic nie złapie. Nie ma `div` z ID `pierwszy`.
@@ -91,10 +91,10 @@ Za to `div#pierwszy` nic nie złapie. Nie ma `div` z ID `pierwszy`.
 
 Można też wskazać po klasie, np. `.bold`:
 
-> Mój nagłówek
-> Pierwszy akapit.
-> Drugi akapit – __grubo__ i _pochyło_.
-> Ekstra _akapit_.
+> Mój nagłówek \
+> Pierwszy akapit. \
+> Drugi akapit – __grubo__ i _pochyło_. \
+> Ekstra _akapit_. \
 > __pa__
 
 Przy czym `span.bold` złapie tylko „_grubo_” a `div.bold` tylko „_pa_”.
@@ -116,10 +116,10 @@ Selektory złożone to takie, które określają swoje położenie względem sie
 
 Potomek, to element jakkolwiek głęboko zawarty w drugim. Np. `div p`:
 
-> Mój nagłówek
-> __Pierwszy akapit.__
-> __Drugi akapit – grubo i _pochyło_.__
-> Ekstra _akapit_.
+> Mój nagłówek \
+> __Pierwszy akapit.__ \
+> __Drugi akapit – grubo i _pochyło_.__ \
+> Ekstra _akapit_. \
 > pa
 
 Zaznaczył `<p>` ale tylko te, które są w `<div>`. Tak samo będzie dla `div.box p`, mimo, że `<p>` jest wnukiem `<div class="box">`.
@@ -134,10 +134,10 @@ Dziecko to tylko bezpośredni potomek. Czyli `div > p` da wynik jak wyżej, ale 
 
 Można wskazać element, który jest bezpośrednio poprzedzony innym, np. `p + p`:
 
-> Mój nagłówek
-> Pierwszy akapit.
-> __Drugi akapit – grubo i _pochyło_.__
-> Ekstra _akapit_.
+> Mój nagłówek \
+> Pierwszy akapit. \
+> __Drugi akapit – grubo i _pochyło_.__ \
+> Ekstra _akapit_. \
 > pa
 
 Powtarzam, bezpośrednio. `h1 + p` nic nam nie da (rozdziela je `<div>`).
@@ -147,10 +147,10 @@ Powtarzam, bezpośrednio. `h1 + p` nic nam nie da (rozdziela je `<div>`).
 
 Można też poprosić o element jakkolwiek poprzedzony, np. `h1 ~ p` (teraz `<div>` w środku nie ma znaczenia):
 
-> Mój nagłówek
-> Pierwszy akapit.
-> Drugi akapit – grubo i _pochyło_.
-> __Ekstra _akapit_.__
+> Mój nagłówek \
+> Pierwszy akapit. \
+> Drugi akapit – grubo i _pochyło_. \
+> __Ekstra _akapit_.__ \
 > pa
 
 
@@ -161,5 +161,12 @@ Polecam jakiś kurs HTML/CSS, albo bezpośrednio https://www.w3schools.com/cssr
 
 ### Testy
 Selektor to bardzo silne narzędzie.
-Aby móc przrte
+Aby móc przetestować na sucho można zawołać bibliotekę, np.
+
+```bash
+git clone https://github.com/rysson/kodi-misc.git
+git checkout altfix    # to tylko na czas naprawy selektorów
+cd kodi-misc/ParseDOM/rysson
+python3 -m pdom http://animezone.pl/anime/lista 'div.anime-list div a'
+```
 
