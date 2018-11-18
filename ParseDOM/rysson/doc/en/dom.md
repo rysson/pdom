@@ -38,6 +38,7 @@ Selector     | Description
 tag          | All <tag> elements
 E1, E2       | Or, all E1 and all E2 matched elements
 E1 E2        | Parent descendant, all E2 elements that are descendants of a E1 element
+E1 > E2      | Child, all E2 elements that are children of a E1 element
 [attr]       | All elements with a attribute `attr`
 [attr=val]   | All elements with a attribute value equal `val`
 [attr^=val]  | All elements with a attribute value starting with `val`
