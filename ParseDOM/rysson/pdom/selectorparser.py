@@ -7,7 +7,7 @@ from operator import xor
 
 from .base import aWord, aWordStarts, aStarts, aEnds, aContains
 from .base import s_attrSelectors, s_resSelectors, pats, regex
-from .base import Node, DomMatch, Result
+from .base import Node, DomMatch, Result, TagPosition
 
 
 from arpeggio import Optional, ZeroOrMore, OneOrMore, EOF
@@ -37,11 +37,12 @@ def param_sel():   return [ id_sel, class_sel, attr_sel, pseudo_sel ]
 def res_attr():    return "(", SP, val, ZeroOrMore(SP, ",", SP, val), SP, ")"
 def res_param():   return "::", ident, Optional(ZeroOrMoreValBr)
 def one_sel():     return [ (tag, Optional(opt_tag), ZeroOrMore(param_sel)), OneOrMore(param_sel) ], Optional(res_attr), ZeroOrMore(res_param)
-def oset_sel():    return "{", SP, desc_sel, ZeroOrMore(SP, ",", SP, desc_sel), SP, "}"
-def set_sel():     return "{{", SP, desc_sel, ZeroOrMore(SP, ",", SP, desc_sel), SP, "}}"
+def oset_sel():    return "{", SP, sel_path, ZeroOrMore(SP, ",", SP, sel_path), SP, "}"
+def set_sel():     return "{{", SP, sel_path, ZeroOrMore(SP, ",", SP, sel_path), SP, "}}"
 def single_sel():  return [ one_sel, set_sel, oset_sel ]
-def desc_sel():    return single_sel, ZeroOrMore(space, single_sel)
-def selector():    return desc_sel, ZeroOrMore(SP, ",", SP, desc_sel), EOF
+def path_type():   return R('\s*[>]\s*|\s+')
+def sel_path():    return single_sel, ZeroOrMore(path_type, single_sel)
+def selector():    return sel_path, ZeroOrMore(SP, ",", SP, sel_path), EOF
 
 
 #: DOM selector parser.
@@ -69,20 +70,22 @@ def dump(tree, lvl=0, path=None):
 
 class Selector(object):
     r"""Single selector (tag, attributes, psudo-elements etc.)."""
-    def __init__(self, tag=None, param=None, result=None, nth=None):
+    def __init__(self, tag=None, param=None, result=None, nth=None, path_type=None):
         self.tag = tag or ''
         self.optional = False
         self.attrs, self.result, self.nodefilterlist = defaultdict(lambda: []), [], []
         self.param = [] if param is None else list(param)
         self._hash = None
         self.nth = nth
+        self.path_type = {'>': TagPosition.RootLevel, }.get(path_type, TagPosition.Any)
     def __repr__(self):
-        return 'Selector(tag={tag!r}, param={param}, result={result})'.format(**vars(self))
+        return 'Selector(tag={tag!r}, param={param}, result={result}, path_type={path_type})'.format(**vars(self))
     def __hash__(self):
         if self._hash is None:
             self._hash = hash(self.tag) ^ hash(self.optional) ^ \
                     hash(str(sorted(self.attrs.items()))) ^ \
-                    hash(str(self.result)) ^ hash(str(self.nodefilterlist))
+                    hash(str(self.result)) ^ hash(str(self.nodefilterlist)) ^ \
+                    hash(self.path_type)
         return self._hash
 
 class GroupSelector(list):
@@ -90,8 +93,8 @@ class GroupSelector(list):
     def __hash__(self):
         return reduce(xor, map(hash, self))
 
-class DescendSelector(list):
-    r"""Descending selector (A B)."""
+class SelectorPath(list):
+    r"""Selector path (A B, A > B)."""
     def __hash__(self):
         return reduce(xor, map(hash, self))
 
@@ -123,6 +126,7 @@ class SelectorBuilder(object):
         self.cur = self.out
         self._cur_ident = self._cur_attr_op = self._cur_val = None
         self._cur_vals = []
+        self._path_type = self._ss_path_type = None
 
     @property
     def sel(self):
@@ -157,22 +161,20 @@ class SelectorBuilder(object):
 
     def _list_append(self, s):
         self.cur.append(s)
-        #if True:
-        #    self.cur.append([s])
-        #else:
-        #    self.cur[-1].append(s)
 
     def enter(self, name, parent, children):
         if DEBUG and __name__ == '__main__':
-            print('Entering Token', name)
-        if name == 'desc_sel':
-            self._list_enter(DescendSelector())
+            print('Entering Token', repr(name))
+        if name == 'sel_path':
+            self._list_enter(SelectorPath())
         elif name == 'set_sel':
             self._list_enter(SetSelector())
+            self._ss_path_type = self._path_type
         elif name == 'oset_sel':
             self._list_enter(OrderedSetSelector())
+            self._ss_path_type = self._path_type
         elif name == 'one_sel':
-            self._list_append(Selector())
+            self._list_append(Selector(path_type=self._path_type))
         elif name == 'val':
             val = children[:2][-1].value
             if not self._cur_vals:
@@ -181,10 +183,12 @@ class SelectorBuilder(object):
 
     def exit(self, name, parent, children):
         if DEBUG and __name__ == '__main__':
-            print('Exiting Token', name)
-        if name == 'desc_sel':
+            print('Exiting Token', repr(name))
+        if name == 'sel_path':
+            self._path_type = None
             self._list_exit()
         elif name in ('set_sel', 'oset_sel'):
+            self._ss_path_type = None
             self._list_exit()
         elif name == 'attr_sel':
             assert self._cur_ident is not None
@@ -216,7 +220,7 @@ class SelectorBuilder(object):
     def terminal(self, name, parent, value):
         cname = '.'.join((parent or '', name))
         if DEBUG and __name__ == '__main__':
-            print('Token Value {} = {!r}  ({})'.format(name, value, cname))
+            print('Token Value {!r} = {!r}  ({})'.format(name, value, cname))
         if not name and value == '(':
             self._cur_val, self._cur_vals = None, []
         elif name == 'tag' or cname in ('tag.ident', 'tag.'):
@@ -232,6 +236,12 @@ class SelectorBuilder(object):
             self._cur_val, self._cur_vals = None, []
         elif cname == 'attr_sel.attr_op':
             self._cur_attr_op = value
+        elif name == 'path_type':
+            self._path_type = value.strip()
+        elif cname == 'selector.' and value == ',':  # group selector separator
+            self._path_type = None
+        elif cname in ('oset_sel.', 'set_sel.') and value == ',':  # set selector separator
+            self._path_type = self._ss_path_type
 
     def _pseudo_contains(self, value):
         def nodefilter(n, arg=value):
@@ -272,13 +282,14 @@ def parse(sel):
 
 
 def set_debug_repr():
+    tag_pos = {TagPosition.Any: '', TagPosition.RootLevel: '>'}
     GroupSelector.__repr__ = lambda self: '\033[36mG\033[0m' + list.__repr__(self)
-    DescendSelector.__repr__ = lambda self: '\033[36mD\033[0m' + list.__repr__(self)
+    SelectorPath.__repr__ = lambda self: '\033[36mP\033[0m' + list.__repr__(self)
     SetSelector.__repr__ = lambda self: '\033[36mA\033[0m' + list.__repr__(self)
     #Selector.__repr__ = lambda self: '\033[36mS\033[0;2m(\033[0;4m{}{},{},F#{},{}\033[0;2m)\033[0m'.format(
-    Selector.__repr__ = lambda self: '\033[36mS\033[0m(\033[0;2m{}{},{},F#{},{}\033[0m)\033[0m'.format(
-        self.tag, self.optional and '?' or '', dict(self.attrs),
-        len(self.nodefilterlist), self.result)
+    Selector.__repr__ = lambda self: '\033[36ms\033[0m(\033[0;2m{pt}{t}{o},{a},F#{nl},{r}\033[0m)\033[0m'.format(
+        t=self.tag, o=self.optional and '?' or '', a=dict(self.attrs),
+        nl=len(self.nodefilterlist), pt=tag_pos.get(self.path_type, '?'), r=self.result)
 
 
 if __name__ == '__main__':
@@ -296,6 +307,7 @@ if __name__ == '__main__':
 
     if args.debug:
         DEBUG = True
+        set_debug_repr()
 
     # parse("a[x~='3']:x()::attr(q)")
     for sel in args.selectors:

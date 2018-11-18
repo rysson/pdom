@@ -5,7 +5,7 @@ import re
 from inspect import isclass
 
 from .base import PY2
-from .base import NoResult, Result, MissingAttr
+from .base import NoResult, Result, MissingAttr, TagPosition
 from .base import regex, pats, remove_tags_re
 from .base import _tostr, _make_html_list, find_node
 from .base import Node, DomMatch
@@ -38,6 +38,24 @@ def find_closing(name, match, item, ms, me):
     """
     tag, ts, cs, ce, te = find_node(name, match, item, ms, me)
     return cs, ce
+
+
+def find_root_tag(item, tag, attr, val):
+    r"""
+    Generator for root-level tags.
+    """
+    # find given tag or any alien tag
+    pat = r'(?:{})|(?P<alien>{})'.format(pats.melem(tag, attr, val), pats.anyElem)
+    pat = re.compile(pat, re.DOTALL | re.IGNORECASE)
+    pos = 0
+    while True:
+        r = pat.search(item, pos)
+        if not r:
+            break
+        node = Node(tagstr=r.group(), tagindex=r.span(), item=item)
+        if not r.group('alien'):
+            yield node  # yield only out tags, not alien (other root-level) tags
+        pos = node.tag_end
 
 
 def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
@@ -108,11 +126,13 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         sync = ret.sync
         skip_missing = ret.missing
         nodefilter = ret.nodefilter or (lambda n: True)
+        position = ret.position
         ret = ret.args  # get requested ret
     except AttributeError:
         separate = sync = False
         skip_missing = MissingAttr.SkipIfDirect
         nodefilter = lambda n: True
+        position = TagPosition.Any
 
     # Return list of values if ret is list  [a] -> [x]
     # otherwise return just values          a   -> x
@@ -155,11 +175,13 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                     if key and val is None:  # Skip this attribute
                         vkey = None
                         #print(f'-> key: {vkey!r}, val: "{val}"')
-                    #print('PAT', pats.melem(name, vkey, val))
-                    lst2 = list(node
-                                for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL | re.IGNORECASE)
-                                for node in (Node(tagstr=r.group(), tagindex=r.span(), item=item),)
-                                if nodefilter(node))
+                    #print('TagPos', position, 'PAT', pats.melem(name, vkey, val))
+                    if position == TagPosition.RootLevel:
+                        gen = find_root_tag(item, tag=name, attr=vkey, val=val)
+                    else:
+                        gen = (Node(tagstr=r.group(), tagindex=r.span(), item=item)
+                               for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL | re.IGNORECASE))
+                    lst2 = [node for node in gen if nodefilter(node)]
                     #lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL | re.IGNORECASE))
                     #print(' L2', lst2)
                     #print(' L ', lst)

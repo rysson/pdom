@@ -203,6 +203,20 @@ class TestDomSelectSet(TestCase):
 
 
 
+class TestDomSelectChild(TestCase):
+
+    def test_empty(self):
+        self.assertEqual(dom_select('<a>A</a><b>B</b>', 'a > b'), [])
+
+    def test_simple(self):
+        self.assertEqual(dom_select('<a>A<b>B</b></a>', 'a > b'), [N('B')])
+        self.assertEqual(dom_select('<a>A<b>B1</b></a><b>B2</b>', 'a > b'), [N('B1')])
+
+    def test_double(self):
+        self.assertEqual(dom_select('<a>A<b>B<c>C</c></b></a>', 'a > b > c'), [N('C')])
+
+
+
 # Manual tests
 if __name__ == '__main__':
     #print(dom_select('<a>A<c>C0</c></a><a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c><b>B9</b>', '{a,b}'))

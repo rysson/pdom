@@ -15,7 +15,7 @@ pdom.search()
 ============
 
 Funkcja parsuje HTML/XML, znajduje tagi z atrybutami
-i zwraca te pasujące wraz z żadaną zawartością 
+i zwraca te pasujące wraz z żądaną zawartością 
 czy to tekst, atrybuty, czy węzeł Node().
 
 
@@ -41,7 +41,7 @@ Selektory
 
 Pierwszy z brzegu kurs, gdzie wyjaśnione są selektory CSS – http://www.kurshtml.edu.pl/css/selektory.html
 
-Tutaj jest tylko namiasta tych mozliowści ale i tak pozwala to w miarę sprawnie wyłuskiwać dane.
+Tutaj jest tylko namiastka tych możliwości ale i tak pozwala to w miarę sprawnie wyłuskiwać dane.
 
 
 ### Obsługiwanie selektory
@@ -54,6 +54,7 @@ Selektor     | Opis
 tag          | Wskazany `<tag>`.
 E1, E2       | Grupa, znajdywana są wszystkie E1 oraz E2.
 E1 E2        | Potomek, każdy E2 które są potomkiem E1.
+E1 > E2      | Dziecko, każdy E2 które są bezpośrednim potomkiem E1.
 [attr]       | Każdy element, który posiada atrybut `attr`.
 [attr=val]   | Każdy element, z atrybutem `attr` równym `val`.
 [attr^=val]  | Każdy element, z atrybutem `attr` rozpoczęty od `val`.
@@ -148,7 +149,7 @@ Można wybrać, które powtórzenia mają się znaleźć w wyniku.
 
 Z przykładu wyżej selektor `{p:2}` zwróci tylko opisy filmów.
 
-Jeśli brak numeru to uzyty jest zawsze o jeden większy niż poprzednio dla takiego samego selektora, czyli:
+Jeśli brak numeru to użyty jest zawsze o jeden większy niż poprzednio dla takiego samego selektora, czyli:
 
 ```html
 <div>

@@ -103,7 +103,8 @@ class Patterns(object):
         pats.anyAttrName  = r'''[\w-]+'''
         pats.askAttrName  = r'''(?P<attr>[\w-]+)'''
         pats.anyAttr      = r'''(?:\s+{anyAttrName}{anyAttrVal})*'''.format(**pats)
-        pats.mtag         = lambda n: r'''(?:{n})(?=[\s/>])'''.format(n=n)
+        pats.anyElem      = r'''<{anyTag}{anyAttr}\s*/?>'''.format(**pats)
+        pats.mtag         = lambda n: r'''(?:{n})(?=[\s/>])'''.format(n=n)  # n=n or pats.anyTag
         pats.mattr        = lambda n, v: \
                 r'''(?:\s+{attr}{anyAttrVal})'''.format(attr=n, **pats) \
                 if v is True else \
@@ -190,6 +191,13 @@ class MissingAttr(Enum):
     SkipAll = 2
 
 
+class TagPosition(Enum):
+    #: Any tag match
+    Any = 0
+    #: Root-level only
+    RootLevel = 1
+
+
 class ResultParam(object):
     r"""
     Helper to tell dom_search() more details about result.
@@ -213,12 +221,14 @@ class ResultParam(object):
                  separate=False,
                  missing=MissingAttr.SkipIfDirect,
                  sync=False,
-                 nodefilter=None):
+                 nodefilter=None,
+                 position=TagPosition.Any):
         self.args = args
         self.separate = separate
         self.missing = missing
         self.sync = sync
         self.nodefilter = nodefilter
+        self.position = position
 
 
 def aWord(s):
@@ -386,6 +396,30 @@ class Node(object):
             item = self.item
         self.__name, self.ts, self.cs, self.ce, self.te = find_node(tagname, self.tagstr, item, ms, me)
         return self
+
+    @property
+    def tag_start(self):
+        r"""Tag start offset (begin of <tag>) in item."""
+        return self.ts
+
+    @property
+    def tag_end(self):
+        r"""Tag end offset (after </tag>) in item."""
+        if not self.te:
+            self._preparse()
+        return self.te
+
+    @property
+    def content_start(self):
+        r"""Content start offset (after <tag>) in item."""
+        return self.cs
+
+    @property
+    def content_end(self):
+        r"""Contnt end offset (begin of </tag>) in item."""
+        if not self.te:
+            self._preparse()
+        return self.ce
 
     @property
     def attrs(self):
