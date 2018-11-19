@@ -7,7 +7,8 @@ from operator import xor
 
 from .base import aWord, aWordStarts, aStarts, aEnds, aContains
 from .base import s_attrSelectors, s_resSelectors, pats, regex
-from .base import Node, DomMatch, Result, TagPosition, ItemSource
+from .base import Node, DomMatch, Result, TagPosition, ItemSource, ResultParam
+from .msearch import dom_search
 
 
 from arpeggio import Optional, ZeroOrMore, OneOrMore, EOF
@@ -17,6 +18,9 @@ from arpeggio import ParserPython, PTNodeVisitor, visit_parse_tree
 
 
 DEBUG = False
+
+def set_debug(debug):
+    DEBUG = debug
 
 
 # --- DOM Selector Grammar ---
@@ -33,10 +37,12 @@ def class_sel():   return '.', ident
 def attr_op():     return R('[$^~|*]?=|~')
 def attr_sel():    return '[', ident, Optional(attr_op, val), ']'
 def pseudo_sel():  return ':', ident, Optional(ZeroOrMoreValBr)
-def param_sel():   return [ id_sel, class_sel, attr_sel, pseudo_sel ]
+def pseudo_not():  return ':not', '(', simple_sel, ')'
+def param_sel():   return [ id_sel, class_sel, attr_sel, pseudo_not, pseudo_sel ]
 def res_attr():    return "(", SP, val, ZeroOrMore(SP, ",", SP, val), SP, ")"
 def res_param():   return "::", ident, Optional(ZeroOrMoreValBr)
-def one_sel():     return [ (tag, Optional(opt_tag), ZeroOrMore(param_sel)), OneOrMore(param_sel) ], Optional(res_attr), ZeroOrMore(res_param)
+def simple_sel():  return [ (tag, Optional(opt_tag), ZeroOrMore(param_sel)), OneOrMore(param_sel) ]
+def one_sel():     return simple_sel, Optional(res_attr), ZeroOrMore(res_param)
 def oset_sel():    return "{", SP, sel_path, ZeroOrMore(SP, ",", SP, sel_path), SP, "}"
 def set_sel():     return "{{", SP, sel_path, ZeroOrMore(SP, ",", SP, sel_path), SP, "}}"
 def single_sel():  return [ one_sel, set_sel, oset_sel ]
@@ -115,6 +121,23 @@ def nodefilterFalse(n):
     return False
 
 
+class SelectorBuilderData(object):
+    r"""
+    Helper. Data for selector builder.
+    """
+
+    def __init__(self):
+        self.stack, self.out = [], GroupSelector()
+        self.cur = self.out
+        self.cur_ident = self.cur_attr_op = self.cur_val = None
+        self.cur_vals = []
+        self.path_type = self.ss_path_type = None
+
+    @property
+    def sel(self):
+        return self.cur[-1]
+
+
 class SelectorBuilder(object):
     r"""
     Build selector structure for dom_select().
@@ -130,15 +153,17 @@ class SelectorBuilder(object):
     def __init__(self, tree):
         self.tree = tree
         self.skip = {'sp'}
-        self.stack, self.out = [], GroupSelector()
-        self.cur = self.out
-        self._cur_ident = self._cur_attr_op = self._cur_val = None
-        self._cur_vals = []
-        self._path_type = self._ss_path_type = None
+        self._main_data = SelectorBuilderData()
+        self._not_data = None
+        self.d = self._main_data
 
     @property
     def sel(self):
-        return self.cur[-1]
+        return self.d.sel
+
+    @property
+    def out(self):
+        return self.d.out
 
     def _build(self, item, lvl=0, path=None, parent=None):
         name = item.rule_name or ''
@@ -161,14 +186,14 @@ class SelectorBuilder(object):
     def _list_enter(self, lst=None):
         new = [] if lst is None else lst
         self._list_append(new)
-        self.stack.append(self.cur)
-        self.cur = new
+        self.d.stack.append(self.d.cur)
+        self.d.cur = new
 
     def _list_exit(self):
-        self.cur = self.stack.pop()
+        self.d.cur = self.d.stack.pop()
 
     def _list_append(self, s):
-        self.cur.append(s)
+        self.d.cur.append(s)
 
     def enter(self, name, parent, children):
         if DEBUG and __name__ == '__main__':
@@ -177,63 +202,80 @@ class SelectorBuilder(object):
             self._list_enter(SelectorPath())
         elif name == 'set_sel':
             self._list_enter(SetSelector())
-            self._ss_path_type = self._path_type
+            self.d.ss_path_type = self.d.path_type
         elif name == 'oset_sel':
             self._list_enter(OrderedSetSelector())
-            self._ss_path_type = self._path_type
+            self.d.ss_path_type = self.d.path_type
         elif name == 'one_sel':
-            self._list_append(Selector(path_type=self._path_type))
+            self._list_append(Selector(path_type=self.d.path_type))
         elif name == 'val':
             val = children[:2][-1].value
-            if not self._cur_vals:
-                self._cur_val = val
-            self._cur_vals.append(val)
+            if not self.d.cur_vals:
+                self.d.cur_val = val
+            self.d.cur_vals.append(val)
+        elif name == 'pseudo_not':
+            self.d = self._not_data = SelectorBuilderData()
+            self._list_append(Selector())
 
     def exit(self, name, parent, children):
         if DEBUG and __name__ == '__main__':
             print('Exiting Token', repr(name))
         if name == 'sel_path':
-            self._path_type = None
+            self.d.path_type = None
             self._list_exit()
         elif name in ('set_sel', 'oset_sel'):
-            self._ss_path_type = None
+            self.d.ss_path_type = None
             self._list_exit()
         elif name == 'attr_sel':
-            assert self._cur_ident is not None
+            assert self.d.cur_ident is not None
             try:
-                self.sel.attrs[self._cur_ident].append(s_attrSelectors[self._cur_attr_op](self._cur_val))
+                self.sel.attrs[self.d.cur_ident].append(s_attrSelectors[self.d.cur_attr_op](self.d.cur_val))
             except KeyError:
-                raise KeyError('Attribute selector "{op}" is not supported'.format(op=self._cur_val))
+                raise KeyError('Attribute selector "{op}" is not supported'.format(op=self.d.cur_val))
         elif name == 'pseudo_sel':
-            assert self._cur_ident is not None
-            if self._cur_ident.isdigit():
-                self.sel.nth = int(self._cur_ident)
+            assert self.d.cur_ident is not None
+            if self.d.cur_ident.isdigit():
+                self.sel.nth = int(self.d.cur_ident)
             else:
                 # all other pseudo use filter function (or not, see code of _pseudo_* methods)
                 try:
-                    fun = getattr(self, '_pseudo_' + self._cur_ident.replace('-', '_'))
+                    fun = getattr(self, '_pseudo_' + self.d.cur_ident.replace('-', '_'))
                 except AttributeError:
-                    raise KeyError('Pseudo-class "{op}" is not supported'.format(op=self._cur_ident))
-                nodefilter = fun(self._cur_val)
+                    raise KeyError('Pseudo-class "{op}" is not supported'.format(op=self.d.cur_ident))
+                nodefilter = fun(self.d.cur_val)
                 if nodefilter:
                     self.sel.nodefilterlist.append(nodefilter)
-        elif (name == 'res_param' and self._cur_ident == 'attr') or name == 'res_attr':
-            if not self._cur_vals:
-                raise IndexError('::attr() needs at least one attribute name')
-            self.sel.result += self._cur_vals
-        elif name == 'res_param':
-            assert self._cur_ident is not None
+        elif name == 'pseudo_not':
+            if not self._not_data:
+                raise ValueError(':not() can NOT be empty')
+            if self.d == self._main_data:
+                raise ValueError(':not() can NOT be inside :not()')
+            self.d = self._main_data
             try:
-                self.sel.result.append(s_resSelectors[self._cur_ident])
+                fun = self._pseudo_not
+            except AttributeError:
+                raise KeyError('Pseudo-class "{op}" is not supported'.format(op='not'))
+            nodefilter = fun(self.d.cur_val)
+            if nodefilter:
+                self.sel.nodefilterlist.append(nodefilter)
+            self._not_data = None
+        elif (name == 'res_param' and self.d.cur_ident == 'attr') or name == 'res_attr':
+            if not self.d.cur_vals:
+                raise IndexError('::attr() needs at least one attribute name')
+            self.sel.result += self.d.cur_vals
+        elif name == 'res_param':
+            assert self.d.cur_ident is not None
+            try:
+                self.sel.result.append(s_resSelectors[self.d.cur_ident])
             except:
-                raise KeyError('Pseudo-elem (result param) "{}" is not supported'.format(self._cur_ident))
+                raise KeyError('Pseudo-elem (result param) "{}" is not supported'.format(self.d.cur_ident))
 
     def terminal(self, name, parent, value):
         cname = '.'.join((parent or '', name))
         if DEBUG and __name__ == '__main__':
             print('Token Value {!r} = {!r}  ({})'.format(name, value, cname))
         if not name and value == '(':
-            self._cur_val, self._cur_vals = None, []
+            self.d.cur_val, self.d.cur_vals = None, []
         elif name == 'tag' or cname in ('tag.ident', 'tag.'):
             self.sel.tag = value
         elif name == 'opt_tag':
@@ -243,16 +285,16 @@ class SelectorBuilder(object):
         elif cname == 'class_sel.ident':
             self.sel.attrs['class'].append(aWord(value))
         elif name == 'ident':
-            self._cur_ident, self._cur_attr_op = value.lower(), None
-            self._cur_val, self._cur_vals = None, []
+            self.d.cur_ident, self.d.cur_attr_op = value.lower(), None
+            self.d.cur_val, self.d.cur_vals = None, []
         elif cname == 'attr_sel.attr_op':
-            self._cur_attr_op = value
+            self.d.cur_attr_op = value
         elif name == 'path_type':
-            self._path_type = value.strip()
+            self.d.path_type = value.strip()
         elif cname == 'selector.' and value == ',':  # group selector separator
-            self._path_type = None
+            self.d.path_type = None
         elif cname in ('oset_sel.', 'set_sel.') and value == ',':  # set selector separator
-            self._path_type = self._ss_path_type
+            self.d.path_type = self.d.ss_path_type
 
     def _pseudo_contains(self, value):
         def nodefilter(n, arg=value):
@@ -322,6 +364,19 @@ class SelectorBuilder(object):
 
     def _pseudo_disabled(self, value):
         self.sel.attrs['disabled'].append(True)
+
+    def _pseudo_not(self, value):
+        if not self._not_data:
+            raise ValueError(':not() can NOT be empty')
+        sel = self._not_data.sel
+        def nodefilter(n):
+            # compare found node `n' with selector from :not()
+            hit = dom_search(n.item[n.tag_start:n.tag_end], sel.tag,
+                             attrs=dict(sel.attrs),
+                             ret=ResultParam(sel.result, nodefilter=sel.nodefilterlist,
+                                             position=TagPosition.FirstOnly))
+            return not hit
+        return nodefilter
 
 
 

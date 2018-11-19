@@ -7,7 +7,7 @@ import argparse
 from .mselect import dom_select
 from .selectorparser import parse as selector_parse
 from .selectorparser import dump as selector_dump
-from .selectorparser import set_debug_repr as selector_set_debug_repr
+from .selectorparser import set_debug_repr as selector_set_debug_repr, set_debug as selector_set_debug
 
 
 class ExtArgumentParser(argparse.ArgumentParser):
@@ -109,6 +109,7 @@ def main():
     if args.debug:
         print('CommandLine:', args)
         selector_set_debug_repr()
+        selector_set_debug(True)
 
     if args.op == 'CMDSEL':
         selector_set_debug_repr()

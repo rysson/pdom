@@ -134,7 +134,8 @@ Selector              | Description
 :last-of-type         | Match the last element of its type among a group of sibling elements
 :only-of-type         | Match the same element as :first-of-type:last-of-type
 :enabled              | Match enabled (not disabled) elements
-:disabled             | Match disabled) elements
+:disabled             | Match disabled elements
+:not(E)               | Match an element that is not represented by simple selector `E`.
 
 
 

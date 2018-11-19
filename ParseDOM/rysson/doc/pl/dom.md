@@ -201,6 +201,7 @@ Selektor              | Opis
 :only-of-type         | Łapie element bez rodzeństwa tego typu, jak :first-of-type:last-of-type
 :enabled              | Łapie elementy nie wyszarzone (bez atrybutu „disabled”)
 :disabled             | Łapie elementy wyszarzone (z atrybutem „disabled”)
+:not(E)               | Łapie elementy, które się nie łapią w prosy selektor `E`
 
 Powyższe pseudo-klasy są wyraźnie wolniejsze ponieważ do sprawdzenia muszą znaleźć tag zamykający.
 
