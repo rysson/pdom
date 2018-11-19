@@ -40,7 +40,7 @@ def find_closing(name, match, item, ms, me):
     return cs, ce
 
 
-def find_root_tag(item, tag, attr, val):
+def find_root_tags(item, tag, attr, val):
     r"""
     Generator for root-level tags.
     """
@@ -190,7 +190,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                         #print(f'-> key: {vkey!r}, val: "{val}"')
                     #print('TagPos', position, 'PAT', pats.melem(name, vkey, val))
                     if position == TagPosition.RootLevel:
-                        gen = find_root_tag(item, tag=name, attr=vkey, val=val)
+                        gen = find_root_tags(item, tag=name, attr=vkey, val=val)
                     elif position == TagPosition.FirstOnly:
                         gen = find_first_tag(item, tag=name, attr=vkey, val=val)
                     else:

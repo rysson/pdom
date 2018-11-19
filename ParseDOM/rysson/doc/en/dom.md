@@ -125,7 +125,13 @@ Selector              | Description
 :content-contains(S)  | Match if text `S` in innerHTML content
 :regex(R)             | Match regex pattern `R` in outerHTML
 :has(T)               | Match if node has tag `T`
-:empty                | March if node has no any text or tag
+:empty                | Match if node has no any text or tag
+:first-child          | Match the first element among a group of sibling
+:last-child           | Match the last element among a group of sibling
+:first-of-type        | Match the first element of its type among a group of sibling elements
+:last-of-type         | Match the last element of its type among a group of sibling elements
+
+
 
 Those pseudo-elements are slower because thay have to find closing tag first.
 

@@ -235,6 +235,68 @@ class TestDomSelectSilbing(TestCase):
 
 
 
+class TestDomSelectFirstLastChild(TestCase):
+
+    html = '<a><b>B0</b></b><a><b>B1</b><b>B2</b></a>' + \
+            '<a><b>B3</b><c>C2</c></a><a><c>C1</c><b>B4</b></a>' + \
+            '<a><c>C3</c><b>B5</b><b>B6</b><c>C4</c></a>'
+
+    def test_first_child(self):
+        with self.subTest('empty'):
+            self.assertEqual(dom_select('<a>A</a><b>B</b>', 'b:first-child'), [])
+        with self.subTest('simple'):
+            self.assertEqual(dom_select('<a>A</a><b>B</b>', 'a:first-child'), [N('A')])
+            self.assertEqual(dom_select('<a>A1</a><a>A2</a>', 'a:first-child'), [N('A1')])
+        with self.subTest('html'):
+            self.assertEqual(dom_select(self.html, 'a b:first-child'), [N('B0'), N('B1'), N('B3')])
+
+    def test_last_child(self):
+        with self.subTest('empty'):
+            self.assertEqual(dom_select('<a>A</a><b>B</b>', 'a:last-child'), [])
+        with self.subTest('simple'):
+            self.assertEqual(dom_select('<a>A</a><b>B</b>', 'b:last-child'), [N('B')])
+            self.assertEqual(dom_select('<a>A1</a><a>A2</a>', 'a:last-child'), [N('A2')])
+        with self.subTest('html'):
+            self.assertEqual(dom_select(self.html, 'a b:last-child'), [N('B0'), N('B2'), N('B4')])
+
+    def test_first_of_type(self):
+        with self.subTest('empty'):
+            self.assertEqual(dom_select('<a>A</a></z><b>B</b>', 'z:first-of-type'), [])
+            self.assertEqual(dom_select('<a><b>B</b><c>C</c></a>', 'z:first-of-type'), [])
+        with self.subTest('simple'):
+            self.assertEqual(dom_select('<a>A</a><b>B</b>', 'a:first-of-type'), [N('A')])
+            self.assertEqual(dom_select('<a>A</a><b>B</b>', 'b:first-of-type'), [N('B')])
+            self.assertEqual(dom_select('<a>A1</a><a>A2</a>', 'a:first-of-type'), [N('A1')])
+            self.assertEqual(dom_select('<z>Z</z><a>A1</a><a>A2</a>', 'a:first-of-type'), [N('A1')])
+        with self.subTest('html'):
+            self.assertEqual(dom_select(self.html, 'a b:first-of-type'),
+                             [N('B0'), N('B1'), N('B3'), N('B4'), N('B5')])
+
+    def test_last_of_type(self):
+        with self.subTest('empty'):
+            self.assertEqual(dom_select('<a>A</a><b>B</b>', 'z:last-of-type'), [])
+            self.assertEqual(dom_select('<a><b>B</b><c>C</c></a>', 'z:first-of-type'), [])
+        with self.subTest('simple'):
+            self.assertEqual(dom_select('<a>A</a><b>B</b>', 'b:last-of-type'), [N('B')])
+            self.assertEqual(dom_select('<a>A</a><b>B</b>', 'a:last-of-type'), [N('A')])
+            self.assertEqual(dom_select('<a>A1</a><a>A2</a>', 'a:last-of-type'), [N('A2')])
+            self.assertEqual(dom_select('<a>A1</a><a>A2</a><z>Z</z>', 'a:last-of-type'), [N('A2')])
+        with self.subTest('html'):
+            self.assertEqual(dom_select(self.html, 'a b:last-of-type'),
+                             [N('B0'), N('B2'), N('B3'), N('B4'), N('B6')])
+
+    def test_single_of_type(self):
+        self.assertEqual(dom_select(self.html, 'a b:first-of-type:last-of-type'),
+                         [N('B0'), N('B3'), N('B4')])
+
+    def test_first_child_but_next(self):
+        self.assertEqual(dom_select('<a><b>B1</b><b>B2</b></a>', 'b + b:first-child'), [])
+
+    def test_first_of_type_but_next(self):
+        self.assertEqual(dom_select('<a><b>B1</b><b>B2</b></a>', 'b + b:first-of-type'), [])
+
+
+
 # Manual tests
 if __name__ == '__main__':
     #print(dom_select('<a>A<c>C0</c></a><a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c><b>B9</b>', '{a,b}'))

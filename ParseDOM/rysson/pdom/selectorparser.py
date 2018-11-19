@@ -202,12 +202,20 @@ class SelectorBuilder(object):
             assert self._cur_ident is not None
             if self._cur_ident.isdigit():
                 self.sel.nth = int(self._cur_ident)
+            elif self._cur_ident == 'first-child':
+                if self.sel.item_source == ItemSource.Content:
+                    self.sel.elem_pos = TagPosition.FirstOnly
+                else:
+                    self.sel.nodefilterlist.append(lambda n: False)
             else:
+                # all other pseudo use filter function
                 try:
                     fun = getattr(self, '_pseudo_' + self._cur_ident.replace('-', '_'))
                 except AttributeError:
                     raise KeyError('Pseudo-class "{op}" is not supported'.format(op=self._cur_ident))
-                self.sel.nodefilterlist.append(fun(self._cur_val))
+                nodefilter = fun(self._cur_val)
+                if nodefilter:
+                    self.sel.nodefilterlist.append(nodefilter)
         elif (name == 'res_param' and self._cur_ident == 'attr') or name == 'res_attr':
             if not self._cur_vals:
                 raise IndexError('::attr() needs at least one attribute name')
@@ -270,6 +278,26 @@ class SelectorBuilder(object):
 
     def _pseudo_empty(self, value):
         return lambda n: not n.content
+
+    def _pseudo_last_child(self, value):
+        rx = regex(pats.anyElem)
+        def nodefilter(n):
+            return not rx.search(n.item[n.tag_end:])
+        return nodefilter
+
+    def _pseudo_first_of_type(self, value):
+        if self.sel.item_source != ItemSource.Content:
+            return lambda n: False
+        def nodefilter(n):
+            rx = regex(pats.melem(n.name, None, None))
+            return not rx.search(n.item[:n.tag_start])
+        return nodefilter
+
+    def _pseudo_last_of_type(self, value):
+        def nodefilter(n):
+            rx = regex(pats.melem(n.name, None, None))
+            return not rx.search(n.item[n.tag_end:])
+        return nodefilter
 
 
 

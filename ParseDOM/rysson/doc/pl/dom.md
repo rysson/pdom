@@ -192,6 +192,10 @@ Selektor              | Opis
 :regex(R)             | Łapie jeśli wyrażenie regularne `R` trafi w outerHTML.
 :has(T)               | Łapie jeśli węzeł posiada w zawartości tag `T`.
 :empty                | Łapie tylko puste tagi (bez tekstu czy tagów w zawartości).
+:first-child          | Łapie pierwszy element z rodzeństwa
+:last-child           | Łapie ostatni element z rodzeństwa
+:first-of-type        | Łapie pierwszy element z rodzeństwa tego samego typu
+:last-of-type         | Łapie ostatni element z rodzeństwa tego samego typu
 
 Powyższe pseudo-klasy są wyraźnie wolniejsze ponieważ do sprawdzenia muszą znaleźć tag zamykający.
 

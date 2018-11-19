@@ -292,8 +292,21 @@ if __name__ == '__main__':
         for row in dom_select('<z><a><b>B1</b></a><b>B2</b></z>', 'z > b'):
             printres(row)
 
-    if 1:
+    if 0:
         #for row in dom_select('<z><a><b>B1</b></a><b>B2</b><c>C1</c><b>B3</b></z>', 'a + b'):
         for row in dom_select('<a>A1</a><a>A2</a><a>A3</a><a>A4</a>', 'a + a + a'):
+            printres(row)
+
+    if 0:
+        html = '<a><b>B0</b></b>' + \
+                '<a><b>B1</b><b>B2</b></a><a><b>B3</b><c>C2</c></a><a><c>C1</c><b>B4</b></a>' + \
+                '<a><c>C3</c><b>B5</b><b>B6</b><c>C4</c></a>'
+        for pclass in (':first-child', ':last-child', ':first-of-type', ':last-of-type',
+                       ':first-child:last-child', ':first-of-type:last-of-type'):
+            print(pclass)
+            for row in dom_select(html, 'a b{}'.format(pclass)):
+                printres(row)
+        print('b + b:first-of-type')
+        for row in dom_select('<b>B1</b><b>B2</b>', 'b + b:first-of-type'):
             printres(row)
 
