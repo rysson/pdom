@@ -295,6 +295,20 @@ class TestDomSelectFirstLastChild(TestCase):
     def test_first_of_type_but_next(self):
         self.assertEqual(dom_select('<a><b>B1</b><b>B2</b></a>', 'b + b:first-of-type'), [])
 
+    def test_only_child(self):
+        self.assertEqual(dom_select('<a>A1</a>', 'a:only-child'), [N('A1')])
+        self.assertEqual(dom_select('<a/><a>A1</a>', 'a:only-child'), [])
+
+    def test_only_child(self):
+        self.assertEqual(dom_select('<a>A1</a>', 'a:only-child'), [N('A1')])
+        self.assertEqual(dom_select('<a>A1</a><b/>', 'a:only-child'), [])
+        self.assertEqual(dom_select('<a>A1</a><a/>', 'a:only-child'), [])
+
+    def test_only_of_type(self):
+        self.assertEqual(dom_select('<a>A1</a>', 'a:only-of-type'), [N('A1')])
+        self.assertEqual(dom_select('<a>A1</a><b/>', 'a:only-of-type'), [N('A1')])
+        self.assertEqual(dom_select('<a>A1</a><a/>', 'a:only-of-type'), [])
+
 
 
 # Manual tests

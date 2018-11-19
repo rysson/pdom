@@ -63,7 +63,7 @@ E1 + E2      | Brat, wszystkie E2 które są bezpośrednio za bratem E1.
 [attr~=val]  | Każdy element, z atrybutem `attr` ze słowem¹ `val`.
 [attr\|=val] | Każdy element, z atrybutem `attr` ze słowem¹ rozpoczętym od `val`.
 [attr*=val]  | Każdy element, z atrybutem `attr` zawierający tekst `val`.
-[attr~val]   | Każdy element, z atrybutem `attr` spełniącym wyrażenie regularne `val` (eksperyment!).
+[attr~regex] | Każdy element, z atrybutem `attr` spełniącym wyrażenie regularne `regex` (eksperyment!).
 
 ¹) Słowo to ciąg znaków (bez spacji).
 
@@ -195,8 +195,10 @@ Selektor              | Opis
 :empty                | Łapie tylko puste tagi (bez tekstu czy tagów w zawartości).
 :first-child          | Łapie pierwszy element z rodzeństwa
 :last-child           | Łapie ostatni element z rodzeństwa
+:only-child           | Łapie samotny element (bez rodzeństwa), to samo co :first-child:last-child
 :first-of-type        | Łapie pierwszy element z rodzeństwa tego samego typu
 :last-of-type         | Łapie ostatni element z rodzeństwa tego samego typu
+:only-of-type         | Łapie element bez rodzeństwa tego typu, jak :first-of-type:last-of-type
 :enabled              | Łapie elementy nie wyszarzone (bez atrybutu „disabled”)
 :disabled             | Łapie elementy wyszarzone (z atrybutem „disabled”)
 

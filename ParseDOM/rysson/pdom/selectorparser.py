@@ -278,7 +278,7 @@ class SelectorBuilder(object):
         return nodefilter
 
     def _pseudo_empty(self, value):
-        return lambda n: not n.content
+        return lambda n: not n.content.strip()
 
     def _pseudo_first_child(self, value):
         if self.sel.item_source != ItemSource.Content:
@@ -290,6 +290,10 @@ class SelectorBuilder(object):
         def nodefilter(n):
             return not rx.search(n.item[n.tag_end:])
         return nodefilter
+
+    def _pseudo_only_child(self, value):
+        nodefilter = self._pseudo_first_child(value)
+        return nodefilter or self._pseudo_last_child(value)
 
     def _pseudo_first_of_type(self, value):
         if self.sel.item_source != ItemSource.Content:
@@ -303,6 +307,14 @@ class SelectorBuilder(object):
         def nodefilter(n):
             rx = regex(pats.melem(n.name, None, None))
             return not rx.search(n.item[n.tag_end:])
+        return nodefilter
+
+    def _pseudo_only_of_type(self, value):
+        if self.sel.item_source != ItemSource.Content:
+            return nodefilterFalse
+        def nodefilter(n):
+            rx = regex(pats.melem(n.name, None, None))
+            return not rx.search(n.item[:n.tag_start]) and not rx.search(n.item[n.tag_end:])
         return nodefilter
 
     def _pseudo_enabled(self, value):

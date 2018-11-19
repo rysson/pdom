@@ -47,7 +47,7 @@ E1 + E2      | Sibling, will match all E2 elements that directly follow an E1
 [attr~=val]  | All elements with a attribute value containing word `val`
 [attr\|=val] | All elements with a attribute value containing word starting with`val`
 [attr*=val]  | All elements with a attribute value containing `val`
-[attr~val]   | All elements with a attribute match regex `val` (experimental!)
+[attr~regex] | All elements with a attribute match `regex` (experimental!)
 
 #### Examples
 
@@ -129,8 +129,10 @@ Selector              | Description
 :empty                | Match if node has no any text or tag
 :first-child          | Match the first element among a group of sibling
 :last-child           | Match the last element among a group of sibling
+:only-child           | Match an element that has no siblings, the same as :first-child:last-child
 :first-of-type        | Match the first element of its type among a group of sibling elements
 :last-of-type         | Match the last element of its type among a group of sibling elements
+:only-of-type         | Match the same element as :first-of-type:last-of-type
 :enabled              | Match enabled (not disabled) elements
 :disabled             | Match disabled) elements
 
