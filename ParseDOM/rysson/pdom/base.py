@@ -494,6 +494,15 @@ class Node(object):
         return 'Node({name!r}, {attrs}, {content!r})'.format(
             name=self.name, attrs=self.attrs, content=self.content)
 
+    def move_to_item(self, item, off):
+        r"""Low level. Move item and offsets to given part."""
+        self.item = item
+        self.ts += off
+        self.cs += off
+        if self.te:
+            self.ce += off
+            self.te += off
+
 
 
 # -------  DOM Select -------

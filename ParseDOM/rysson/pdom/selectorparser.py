@@ -165,6 +165,10 @@ class SelectorBuilder(object):
     def out(self):
         return self.d.out
 
+    @property
+    def inside_pseudo_not(self):
+        return bool(self._not_data)
+
     def _build(self, item, lvl=0, path=None, parent=None):
         name = item.rule_name or ''
         cname = '.'.join((parent or '', name))
@@ -246,7 +250,7 @@ class SelectorBuilder(object):
                 if nodefilter:
                     self.sel.nodefilterlist.append(nodefilter)
         elif name == 'pseudo_not':
-            if not self._not_data:
+            if not self.inside_pseudo_not:
                 raise ValueError(':not() can NOT be empty')
             if self.d == self._main_data:
                 raise ValueError(':not() can NOT be inside :not()')
@@ -325,6 +329,12 @@ class SelectorBuilder(object):
     def _pseudo_first_child(self, value):
         if self.sel.item_source != ItemSource.Content:
             return nodefilterFalse
+        if self.inside_pseudo_not:
+            # Can't use shortcut in :not()
+            rx = regex(pats.anyElem)
+            def nodefilter(n):
+                return not rx.search(n.item[:n.tag_start])
+            return nodefilter
         self.sel.elem_pos = TagPosition.FirstOnly
 
     def _pseudo_last_child(self, value):
@@ -366,16 +376,18 @@ class SelectorBuilder(object):
         self.sel.attrs['disabled'].append(True)
 
     def _pseudo_not(self, value):
-        if not self._not_data:
+        if not self.inside_pseudo_not:
             raise ValueError(':not() can NOT be empty')
         sel = self._not_data.sel
-        def nodefilter(n):
-            # compare found node `n' with selector from :not()
-            hit = dom_search(n.item[n.tag_start:n.tag_end], sel.tag,
-                             attrs=dict(sel.attrs),
-                             ret=ResultParam(sel.result, nodefilter=sel.nodefilterlist,
-                                             position=TagPosition.FirstOnly))
-            return not hit
+        def nodefilter(node):
+            # compare found node `node' with selector from :not()
+            hit = dom_search(node.item[node.tag_start:node.tag_end], sel.tag, attrs=dict(sel.attrs),
+                             ret=ResultParam(Result.Node, position=TagPosition.FirstOnly))
+            for n in hit:
+                n.move_to_item(item=node.item, off=node.tag_start)
+                if all(f(n) for f in sel.nodefilterlist):
+                    return False   # hit, :not() is false
+            return True
         return nodefilter
 
 

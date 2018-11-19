@@ -311,6 +311,34 @@ class TestDomSelectFirstLastChild(TestCase):
 
 
 
+class TestDomSelectNot(TestCase):
+
+    def test_not_empty_sel(self):
+        self.assertRaises(ValueError, dom_select, '<a>A</a>', ':not')
+        self.assertRaises(ValueError, dom_select, '<a>A</a>', ':not()')
+
+    def test_empty(self):
+        self.assertEqual(dom_select('<a/><b/>', ':not(*)'), [])
+        self.assertEqual(dom_select('<a/><b/>', ':not(:enabled)'), [])
+        self.assertEqual(dom_select('<a/><b/>', ':not(a):not(b)'), [])
+        self.assertEqual(dom_select('<a/><b/>', 'a:not(a)'), [])
+        self.assertEqual(dom_select('<a/><b/>', 'z:not(a)'), [])
+
+    def test_simple(self):
+        self.assertEqual(dom_select('<a>A</a>', ':not(b)'), [N('A')])
+        self.assertEqual(dom_select('<a>A</a>', 'a:not(b)'), [N('A')])
+
+    def test_many(self):
+        self.assertEqual(dom_select('<a>A</a><b>B</b>', ':not(b)'), [N('A')])
+        self.assertEqual(dom_select('<a>A</a><b>B</b>', 'a:not(b)'), [N('A')])
+
+    def test_pos(self):
+        self.assertEqual(dom_select('<a>A</a><b>B</b>', ':not(b:first-child)'), [N('A'), N('B')])
+        self.assertEqual(dom_select('<a>A</a><b>B</b>', ':not(a:first-child)'), [N('B')])
+        self.assertEqual(dom_select('<a>A</a><b>B</b>', ':not(:first-child)'), [N('B')])
+        self.assertEqual(dom_select('<a>A</a><b>B</b>', 'a:not(:first-child)'), [])
+
+
 # Manual tests
 if __name__ == '__main__':
     #print(dom_select('<a>A<c>C0</c></a><a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c><b>B9</b>', '{a,b}'))
