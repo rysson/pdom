@@ -30,7 +30,7 @@ def tag():         return [ ident, "*" ]
 def opt_tag():     return '?'
 def id_sel():      return '#', ident
 def class_sel():   return '.', ident
-def attr_op():     return R('[$^~|*]?=')
+def attr_op():     return R('[$^~|*]?=|~')
 def attr_sel():    return '[', ident, Optional(attr_op, val), ']'
 def pseudo_sel():  return ':', ident, Optional(ZeroOrMoreValBr)
 def param_sel():   return [ id_sel, class_sel, attr_sel, pseudo_sel ]

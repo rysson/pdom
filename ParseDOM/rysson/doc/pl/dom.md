@@ -63,6 +63,7 @@ E1 + E2      | Brat, wszystkie E2 które są bezpośrednio za bratem E1.
 [attr~=val]  | Każdy element, z atrybutem `attr` ze słowem¹ `val`.
 [attr\|=val] | Każdy element, z atrybutem `attr` ze słowem¹ rozpoczętym od `val`.
 [attr*=val]  | Każdy element, z atrybutem `attr` zawierający tekst `val`.
+[attr~val]   | Każdy element, z atrybutem `attr` spełniącym wyrażenie regularne `val` (eksperyment!).
 
 ¹) Słowo to ciąg znaków (bez spacji).
 

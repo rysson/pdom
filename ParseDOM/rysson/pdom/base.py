@@ -501,12 +501,13 @@ class Node(object):
 #: Attribute selector operation.
 s_attrSelectors = {
     None:  lambda v: True,
-    '=':   lambda v: v,
-    '~=':  aWord,
-    '|=':  aWordStarts,
-    '^=':  aStarts,
-    '$=':  aEnds,
-    '*=':  aContains,
+    '=':   lambda v: re.escape(v),
+    '~':   lambda v: v,
+    '~=':  lambda v: aWord(re.escape(v)),
+    '|=':  lambda v: aWordStarts(re.escape(v)),
+    '^=':  lambda v: aStarts(re.escape(v)),
+    '$=':  lambda v: aEnds(re.escape(v)),
+    '*=':  lambda v: aContains(re.escape(v)),
 }
 
 #: Result param pseudo-element (::xxx)

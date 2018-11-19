@@ -45,8 +45,9 @@ E1 + E2      | Sibling, will match all E2 elements that directly follow an E1
 [attr^=val]  | All elements with a attribute value starting with `val`
 [attr$=val]  | All elements with a attribute value ending with `val`
 [attr~=val]  | All elements with a attribute value containing word `val`
-[attr\|=val]  | All elements with a attribute value containing word starting with`val`
+[attr\|=val] | All elements with a attribute value containing word starting with`val`
 [attr*=val]  | All elements with a attribute value containing `val`
+[attr~val]   | All elements with a attribute match regex `val` (experimental!)
 
 #### Examples
 
