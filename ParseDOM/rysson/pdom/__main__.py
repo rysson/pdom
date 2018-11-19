@@ -32,12 +32,11 @@ class ExtArgumentParser(argparse.ArgumentParser):
         r"""Set default subparser (subcommand name)."""
         self._default_subparser = defname
 
-    def set_subparser_alternative(self, name, altname, *altnames):
+    def set_subparser_alternative(self, name, *altnames):
         r"""
         Set subparser (subcommand name) alternative.
         Useful for ateratives with dashes.
         """
-        self._subparsers_alt[altnames] = name
         for a in altnames:
             self._subparsers_alt[a] = name
 
@@ -86,25 +85,39 @@ def main():
 
     aparser = ExtArgumentParser()
     aparser.add_argument('--debug', action='store_true', help='debug info')
+
     asubparsers = aparser.add_subparsers(dest='op')
     aparser.set_default_subparser('CMDURL')
 
-    aurlparser = asubparsers.add_parser('CMDURL', help='(default)              test selector on URL')
+    aurlparser = asubparsers.add_parser('CMDURL', help='(default) test selector on URL')
     aurlparser.add_argument('url', metavar='URL', nargs=1, help='URL or file')
     aurlparser.add_argument('selectors', metavar='SEL', nargs='+', help='selector to parse')
 
-    aselparser = asubparsers.add_parser('CMDSEL', help='(--selector-parse, -S) test selector parser')
-    aselparser.add_argument('selectors', metavar='SEL', nargs='+', help='selector to parse')
-    aparser.set_subparser_alternative('CMDSEL', '--selector-parse', '--selector', '--sel', '-S')
+    ahtmlparser = asubparsers.add_parser('CMDHTML', help='(-H) Use direct HTML instead of URL')
+    ahtmlparser.add_argument('html', metavar='HTML', nargs=1, help='Direct HTML instead of URL')
+    ahtmlparser.add_argument('selectors', metavar='SEL', nargs='+', help='selector to parse')
+    aparser.set_subparser_alternative('CMDHTML', '--html', '-H')
 
+    aselparser = asubparsers.add_parser('CMDSEL', help='(-S) test selector parser')
+    aselparser.add_argument('selectors', metavar='SEL', nargs='+', help='selector to parse')
+    aparser.set_subparser_alternative('CMDSEL', '--selector', '--selector-parse', '-S')
+
+    #cmdi = [x.title for x in aparser._action_groups].index('command')
+    #aparser._action_groups.insert(0, aparser._action_groups.pop(cmdi))
     args = aparser.parse_args()
+
     if args.debug:
         print('CommandLine:', args)
         selector_set_debug_repr()
 
     if args.op == 'CMDSEL':
+        selector_set_debug_repr()
         for sel in args.selectors:
             print(selector_parse(sel))
+    elif args.op == 'CMDHTML':
+        html = args.html[0]
+        for sel in args.selectors:
+            pprint(dom_select(html, sel))
     else:
         url = args.url[0]
         if url.startswith('file://'):

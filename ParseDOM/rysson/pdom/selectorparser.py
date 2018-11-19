@@ -81,7 +81,8 @@ class Selector(object):
                          '+': TagPosition.FirstOnly, }.get(path_type, TagPosition.Any)
         self.item_source = {'+': ItemSource.After, }.get(path_type, ItemSource.Content)
     def __repr__(self):
-        return 'Selector(tag={tag!r}, param={param}, result={result}, elem_pos={elem_pos}, item_source={item_source})'.format(**vars(self))
+        return 'Selector(tag={tag!r}, attrs={attrs}, param={param}, result={result}, ' \
+                'elem_pos={elem_pos}, item_source={item_source})'.format(**vars(self))
     def __hash__(self):
         if self._hash is None:
             self._hash = hash(self.tag) ^ hash(self.optional) ^ \
