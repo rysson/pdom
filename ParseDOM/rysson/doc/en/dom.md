@@ -32,13 +32,14 @@ Selectors
 
 Selector     | Description
 -------------|------------
-\*           | All elements
-\#id         | The element with id
-.class       | All elements with class
-tag          | All <tag> elements
+\*           | Universal, selects all elements
+\#id         | ID, selects an element based on the value of its id attribute
+.class       | Class, selects all elements that have the given class attribute
+tag          | Type, selects all elements that match the given node name
 E1, E2       | Or, all E1 and all E2 matched elements
-E1 E2        | Parent descendant, all E2 elements that are descendants of a E1 element
-E1 > E2      | Child, all E2 elements that are children of a E1 element
+E1 E2        | Descendant, will match all E2 elements that are inside a 2 element
+E1 > E2      | Child, will match all E2 elements that are nested directly inside a E1
+E1 + E2      | Sibling, will match all E2 elements that directly follow an E1
 [attr]       | All elements with a attribute `attr`
 [attr=val]   | All elements with a attribute value equal `val`
 [attr^=val]  | All elements with a attribute value starting with `val`

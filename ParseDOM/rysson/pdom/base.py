@@ -128,6 +128,7 @@ class Patterns(object):
             r'''#(?P<id>[^[\s.#]+)|\.(?P<class>[\w-]+)|\[(?P<attr>[\w-]+)''' \
             r'''(?:(?P<aop>[~|^$*]?=)(?:"(?P<aval1>[^"]*)"|'(?P<aval2>[^']*)'|(?P<aval0>(?<!['"])[^]]+)))?''' \
             r'''\]|(?P<pseudo>::?[-\w]+)(?:\((?P<psarg1>.*?)\))?''')
+        pats.melem_or_alien = lambda t, a, v: r'(?:{})|(?P<alien>{anyElem})'.format(pats.melem(t, a, v), **pats)
 
     def __setattr__(self, key, val):
         super(Patterns, self).__setattr__(key, val)
@@ -196,6 +197,15 @@ class TagPosition(Enum):
     Any = 0
     #: Root-level only
     RootLevel = 1
+    #: First only
+    FirstOnly = 2
+
+
+class ItemSource(Enum):
+    #: Default source (content)
+    Content = 0
+    #: After part of previous source item is used for ``Node''.
+    After = 1
 
 
 class ResultParam(object):
@@ -222,13 +232,15 @@ class ResultParam(object):
                  missing=MissingAttr.SkipIfDirect,
                  sync=False,
                  nodefilter=None,
-                 position=TagPosition.Any):
+                 position=TagPosition.Any,
+                 source=ItemSource.Content):
         self.args = args
         self.separate = separate
         self.missing = missing
         self.sync = sync
         self.nodefilter = nodefilter
         self.position = position
+        self.source = source
 
 
 def aWord(s):
@@ -252,10 +264,13 @@ def aContains(s):
     return '''[^'"]*?{}[^'"]*?'''.format(s)
 
 
-def _tostr(s):
+def _tostr(s, source=ItemSource.Content):
     """Change bytes to string (also in list)"""
     if isinstance(s, Node):
-        s = s.content
+        if source == ItemSource.After:
+            s = s.item[s.tag_end:]
+        else:
+            s = s.content
     if isinstance(s, DomMatch):
         s = s.content
     elif isinstance(s, (list, tuple)):

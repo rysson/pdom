@@ -217,6 +217,24 @@ class TestDomSelectChild(TestCase):
 
 
 
+class TestDomSelectSilbing(TestCase):
+
+    def test_empty(self):
+        self.assertEqual(dom_select('<a>A</a><b>B</b>', 'b + a'), [])
+        self.assertEqual(dom_select('<a>A</a><b>B</b><c>C</c>', 'a + c'), [])
+
+    def test_single(self):
+        self.assertEqual(dom_select('<a>A</a><b>B</b>', 'a + b'), [N('B')])
+        self.assertEqual(dom_select('<a>A1</a><a>A2</a>', 'a + a'), [N('A2')])
+
+    def test_many(self):
+        self.assertEqual(dom_select('<a>A1</a><a>A2</a><a>A3</a>', 'a + a + a'), [N('A3')])
+
+    def test_many_hit(self):
+        self.assertEqual(dom_select('<a>A1</a><a>A2</a><a>A3</a>', 'a + a'), [N('A2'), N('A3')])
+
+
+
 # Manual tests
 if __name__ == '__main__':
     #print(dom_select('<a>A<c>C0</c></a><a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c><b>B9</b>', '{a,b}'))

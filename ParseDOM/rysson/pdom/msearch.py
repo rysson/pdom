@@ -5,7 +5,7 @@ import re
 from inspect import isclass
 
 from .base import PY2
-from .base import NoResult, Result, MissingAttr, TagPosition
+from .base import NoResult, Result, MissingAttr, TagPosition, ItemSource
 from .base import regex, pats, remove_tags_re
 from .base import _tostr, _make_html_list, find_node
 from .base import Node, DomMatch
@@ -45,8 +45,7 @@ def find_root_tag(item, tag, attr, val):
     Generator for root-level tags.
     """
     # find given tag or any alien tag
-    pat = r'(?:{})|(?P<alien>{})'.format(pats.melem(tag, attr, val), pats.anyElem)
-    pat = re.compile(pat, re.DOTALL | re.IGNORECASE)
+    pat = re.compile(pats.melem_or_alien(tag, attr, val), re.DOTALL | re.IGNORECASE)
     pos = 0
     while True:
         r = pat.search(item, pos)
@@ -56,6 +55,18 @@ def find_root_tag(item, tag, attr, val):
         if not r.group('alien'):
             yield node  # yield only out tags, not alien (other root-level) tags
         pos = node.tag_end
+
+
+def find_first_tag(item, tag, attr, val):
+    r"""
+    Generator for first-only tag.
+    """
+    # find first given tag or any alien tag
+    pat = re.compile(pats.melem_or_alien(tag, attr, val), re.DOTALL | re.IGNORECASE)
+    r = pat.search(item)
+    if r and not r.group('alien'):
+        node = Node(tagstr=r.group(), tagindex=r.span(), item=item)
+        yield node  # yield only first and matching tag, not alien
 
 
 def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
@@ -127,12 +138,14 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         skip_missing = ret.missing
         nodefilter = ret.nodefilter or (lambda n: True)
         position = ret.position
+        source = ret.source
         ret = ret.args  # get requested ret
     except AttributeError:
         separate = sync = False
         skip_missing = MissingAttr.SkipIfDirect
         nodefilter = lambda n: True
         position = TagPosition.Any
+        source = ItemSource.Content
 
     # Return list of values if ret is list  [a] -> [x]
     # otherwise return just values          a   -> x
@@ -156,7 +169,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
             #print('search - None')
             ret_lst += [item]
             continue
-        item = _tostr(item)
+        item = _tostr(item, source=source)
         if exclude_comments:
             item = re_comments.sub(item, '')
         if not item:
@@ -178,6 +191,8 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                     #print('TagPos', position, 'PAT', pats.melem(name, vkey, val))
                     if position == TagPosition.RootLevel:
                         gen = find_root_tag(item, tag=name, attr=vkey, val=val)
+                    elif position == TagPosition.FirstOnly:
+                        gen = find_first_tag(item, tag=name, attr=vkey, val=val)
                     else:
                         gen = (Node(tagstr=r.group(), tagindex=r.span(), item=item)
                                for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL | re.IGNORECASE))

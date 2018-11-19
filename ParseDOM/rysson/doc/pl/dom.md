@@ -52,9 +52,10 @@ Selektor     | Opis
 \#id         | Każdy element z podanym `id`.
 .class       | Każdy element z podaną klasą `class`.
 tag          | Wskazany `<tag>`.
-E1, E2       | Grupa, znajdywana są wszystkie E1 oraz E2.
-E1 E2        | Potomek, każdy E2 które są potomkiem E1.
-E1 > E2      | Dziecko, każdy E2 które są bezpośrednim potomkiem E1.
+E1, E2       | Grupa, znajdywana są wszystkie E1 oraz E2 (nie można zagłębiać).
+E1 E2        | Potomek, wszystkie E2 które są potomkiem E1 (czyli znajsduję się w E1).
+E1 > E2      | Dziecko, wszystkie E2 które są bezpośrednim dzieckiem E1.
+E1 + E2      | Brat, wszystkie E2 które są bezpośrednio za bratem E1.
 [attr]       | Każdy element, który posiada atrybut `attr`.
 [attr=val]   | Każdy element, z atrybutem `attr` równym `val`.
 [attr^=val]  | Każdy element, z atrybutem `attr` rozpoczęty od `val`.

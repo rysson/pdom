@@ -7,7 +7,7 @@ from operator import xor
 
 from .base import aWord, aWordStarts, aStarts, aEnds, aContains
 from .base import s_attrSelectors, s_resSelectors, pats, regex
-from .base import Node, DomMatch, Result, TagPosition
+from .base import Node, DomMatch, Result, TagPosition, ItemSource
 
 
 from arpeggio import Optional, ZeroOrMore, OneOrMore, EOF
@@ -40,7 +40,7 @@ def one_sel():     return [ (tag, Optional(opt_tag), ZeroOrMore(param_sel)), One
 def oset_sel():    return "{", SP, sel_path, ZeroOrMore(SP, ",", SP, sel_path), SP, "}"
 def set_sel():     return "{{", SP, sel_path, ZeroOrMore(SP, ",", SP, sel_path), SP, "}}"
 def single_sel():  return [ one_sel, set_sel, oset_sel ]
-def path_type():   return R('\s*[>]\s*|\s+')
+def path_type():   return R('\s*[>+]\s*|\s+')
 def sel_path():    return single_sel, ZeroOrMore(path_type, single_sel)
 def selector():    return sel_path, ZeroOrMore(SP, ",", SP, sel_path), EOF
 
@@ -77,15 +77,17 @@ class Selector(object):
         self.param = [] if param is None else list(param)
         self._hash = None
         self.nth = nth
-        self.path_type = {'>': TagPosition.RootLevel, }.get(path_type, TagPosition.Any)
+        self.elem_pos = {'>': TagPosition.RootLevel,
+                         '+': TagPosition.FirstOnly, }.get(path_type, TagPosition.Any)
+        self.item_source = {'+': ItemSource.After, }.get(path_type, ItemSource.Content)
     def __repr__(self):
-        return 'Selector(tag={tag!r}, param={param}, result={result}, path_type={path_type})'.format(**vars(self))
+        return 'Selector(tag={tag!r}, param={param}, result={result}, elem_pos={elem_pos}, item_source={item_source})'.format(**vars(self))
     def __hash__(self):
         if self._hash is None:
             self._hash = hash(self.tag) ^ hash(self.optional) ^ \
                     hash(str(sorted(self.attrs.items()))) ^ \
                     hash(str(self.result)) ^ hash(str(self.nodefilterlist)) ^ \
-                    hash(self.path_type)
+                    hash(self.elem_pos) ^ hash(self.item_source)
         return self._hash
 
 class GroupSelector(list):
@@ -282,14 +284,17 @@ def parse(sel):
 
 
 def set_debug_repr():
-    tag_pos = {TagPosition.Any: '', TagPosition.RootLevel: '>'}
+    tag_pos = {TagPosition.Any: '', TagPosition.RootLevel: '>', TagPosition.FirstOnly: '(^)'}
+    tag_src = {ItemSource.Content: '', ItemSource.After: '+'}
     GroupSelector.__repr__ = lambda self: '\033[36mG\033[0m' + list.__repr__(self)
     SelectorPath.__repr__ = lambda self: '\033[36mP\033[0m' + list.__repr__(self)
     SetSelector.__repr__ = lambda self: '\033[36mA\033[0m' + list.__repr__(self)
     #Selector.__repr__ = lambda self: '\033[36mS\033[0;2m(\033[0;4m{}{},{},F#{},{}\033[0;2m)\033[0m'.format(
-    Selector.__repr__ = lambda self: '\033[36ms\033[0m(\033[0;2m{pt}{t}{o},{a},F#{nl},{r}\033[0m)\033[0m'.format(
+    Selector.__repr__ = lambda self: '\033[36ms\033[0m(\033[0;2m{ep}{es}{t}{o},{a},F#{nl},{r}\033[0m)\033[0m'.format(
         t=self.tag, o=self.optional and '?' or '', a=dict(self.attrs),
-        nl=len(self.nodefilterlist), pt=tag_pos.get(self.path_type, '?'), r=self.result)
+        nl=len(self.nodefilterlist), r=self.result,
+        ep=tag_pos.get(self.elem_pos, '?'), es=tag_src.get(self.item_source, '?')
+    )
 
 
 if __name__ == '__main__':

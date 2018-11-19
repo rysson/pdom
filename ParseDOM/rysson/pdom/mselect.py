@@ -112,7 +112,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
             part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(sel.attrs),
                                     ret=ResultParam(sel.result, missing=MissingAttr.NoSkip,
                                                     separate=True, sync=rsync, nodefilter=nodefilter,
-                                                    position=sel.path_type))
+                                                    position=sel.elem_pos, source=sel.item_source))
             if not tree:
                 #print('PART', part, 'RETURN.')
                 #print('TREE', tree, 'RETURN!')
@@ -132,7 +132,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
             #print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, attrs={dict(sel.attrs)}, sync={rsync})')
             part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(sel.attrs),
                                     ret=ResultParam(Result.Node, sync=rsync, nodefilter=nodefilter,
-                                                    position=sel.path_type)), None
+                                                    position=sel.elem_pos, source=sel.item_source)), None
             if not part:
                 #print('PART', part, 'RETURN!')
                 #print('TREE', tree, 'RETURN.')
@@ -290,5 +290,10 @@ if __name__ == '__main__':
 
     if 0:
         for row in dom_select('<z><a><b>B1</b></a><b>B2</b></z>', 'z > b'):
+            printres(row)
+
+    if 1:
+        #for row in dom_select('<z><a><b>B1</b></a><b>B2</b><c>C1</c><b>B3</b></z>', 'a + b'):
+        for row in dom_select('<a>A1</a><a>A2</a><a>A3</a><a>A4</a>', 'a + a + a'):
             printres(row)
 
