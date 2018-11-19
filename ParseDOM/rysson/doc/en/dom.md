@@ -130,6 +130,8 @@ Selector              | Description
 :last-child           | Match the last element among a group of sibling
 :first-of-type        | Match the first element of its type among a group of sibling elements
 :last-of-type         | Match the last element of its type among a group of sibling elements
+:enabled              | Match enabled (not disabled) elements
+:disabled             | Match disabled) elements
 
 
 

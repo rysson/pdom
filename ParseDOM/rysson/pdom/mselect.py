@@ -310,3 +310,7 @@ if __name__ == '__main__':
         for row in dom_select('<b>B1</b><b>B2</b>', 'b + b:first-of-type'):
             printres(row)
 
+    if 0:
+        for row in dom_select('<a>A1</a><a disabled>A2</a><a disabled="disabled">A3</a>', 'a:disabled'):
+            printres(row)
+

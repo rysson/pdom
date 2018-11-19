@@ -110,6 +110,11 @@ class OrderedSetSelector(SetSelector):
     r"""Ordered set selector ( {(A, B)} )."""
 
 
+def nodefilterFalse(n):
+    r"""Force node to does NOT match."""
+    return False
+
+
 class SelectorBuilder(object):
     r"""
     Build selector structure for dom_select().
@@ -203,13 +208,8 @@ class SelectorBuilder(object):
             assert self._cur_ident is not None
             if self._cur_ident.isdigit():
                 self.sel.nth = int(self._cur_ident)
-            elif self._cur_ident == 'first-child':
-                if self.sel.item_source == ItemSource.Content:
-                    self.sel.elem_pos = TagPosition.FirstOnly
-                else:
-                    self.sel.nodefilterlist.append(lambda n: False)
             else:
-                # all other pseudo use filter function
+                # all other pseudo use filter function (or not, see code of _pseudo_* methods)
                 try:
                     fun = getattr(self, '_pseudo_' + self._cur_ident.replace('-', '_'))
                 except AttributeError:
@@ -280,6 +280,11 @@ class SelectorBuilder(object):
     def _pseudo_empty(self, value):
         return lambda n: not n.content
 
+    def _pseudo_first_child(self, value):
+        if self.sel.item_source != ItemSource.Content:
+            return nodefilterFalse
+        self.sel.elem_pos = TagPosition.FirstOnly
+
     def _pseudo_last_child(self, value):
         rx = regex(pats.anyElem)
         def nodefilter(n):
@@ -288,7 +293,7 @@ class SelectorBuilder(object):
 
     def _pseudo_first_of_type(self, value):
         if self.sel.item_source != ItemSource.Content:
-            return lambda n: False
+            return nodefilterFalse
         def nodefilter(n):
             rx = regex(pats.melem(n.name, None, None))
             return not rx.search(n.item[:n.tag_start])
@@ -299,6 +304,12 @@ class SelectorBuilder(object):
             rx = regex(pats.melem(n.name, None, None))
             return not rx.search(n.item[n.tag_end:])
         return nodefilter
+
+    def _pseudo_enabled(self, value):
+        self.sel.attrs['disabled'].append(False)
+
+    def _pseudo_disabled(self, value):
+        self.sel.attrs['disabled'].append(True)
 
 
 

@@ -196,6 +196,8 @@ Selektor              | Opis
 :last-child           | Łapie ostatni element z rodzeństwa
 :first-of-type        | Łapie pierwszy element z rodzeństwa tego samego typu
 :last-of-type         | Łapie ostatni element z rodzeństwa tego samego typu
+:enabled              | Łapie elementy nie wyszarzone (bez atrybutu „disabled”)
+:disabled             | Łapie elementy wyszarzone (z atrybutem „disabled”)
 
 Powyższe pseudo-klasy są wyraźnie wolniejsze ponieważ do sprawdzenia muszą znaleźć tag zamykający.
 
