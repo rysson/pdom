@@ -1,6 +1,11 @@
 # Python temp/bin files
-*.py[co]
+*.py[cod]
 __pycache__
+
+# pysetup
+/build/
+/dist/
+/*.egg-info/
 
 
 # ViM temp files

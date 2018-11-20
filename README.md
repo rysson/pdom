@@ -9,19 +9,32 @@ Useful in [Kodi](https://kodi.tv) addons. It replaces old [ParseDOM](https://kod
 
 ## First look
 
-To see links try:
+Get links and build Kodi folder.
+
+```python
+url = 'http://animezone.pl'
+r = client.request(urljoin(url, '/anime/lista'))
+for a in pdom.select(r, 'div.anime-list div a'):
+    addon.addDir(a.text, urljoin(url, a.href), mode=3)
+```
+
+To see nested elements (`href` from `a` nested `img.src`).
+
+```href
+<a href="watch.php?id=15">
+  <img src="ch_logo/elevensports1.png">
+</a>
+```
 
 ```bash
 python3 -m dom  http://wizja.tv 'a[href*=watch](href) img(src)'
 ```
 
-From python:
-
 ```python
 url = 'http://wizja.tv'
 with requests.Session() as sess:
-    for a, logo in dom.select(sess.get(url), 'a[href*=watch] img'):
-        print('url={a.href}, logo={logo.src}.format(**locals()))
+    for (link,), (logo,) in dom.select(sess.get(url), 'a[href*=watch](href) img(src)'):
+        print('url={link!r}, logo={logo!r}.format(link=link, logo=logo))
 ```
 
 
