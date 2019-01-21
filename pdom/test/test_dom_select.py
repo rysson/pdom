@@ -339,6 +339,14 @@ class TestDomSelectNot(TestCase):
         self.assertEqual(dom_select('<a>A</a><b>B</b>', 'a:not(:first-child)'), [])
 
 
+
+class TestDomSelectVoidTags(TestCase):
+
+    def test_void_tags(self):
+        self.assertEqual(dom_select('<b>B1<b>B2</b>', 'b'), [N('', tag='b'), N('B2', tag='b')])
+        self.assertEqual(dom_select('<br>B1<br>B2</br>', 'br'), [N('', tag='br'), N('', tag='br')])
+
+
 # Manual tests
 if __name__ == '__main__':
     #print(dom_select('<a>A<c>C0</c></a><a>A<c>C1</c></a><b>B<c>C2</c><c>C3</c></b><c>Cx</c><b>B9</b>', '{a,b}'))

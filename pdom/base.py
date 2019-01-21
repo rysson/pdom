@@ -296,7 +296,12 @@ def _make_html_list(html):
     return html
 
 
-def find_node(name, match, item, ms, me):
+#: The List of HTML Void Elements (singletons)
+HtmlVoidTags = { 'area', 'base', 'br', 'col', 'command', 'embed', 'hr', 'img', 'input',
+                'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr', }
+
+
+def find_node(name, match, item, ms, me, void=HtmlVoidTags):
     r"""
     Helper. Find closing tag for given `name` tag.
 
@@ -341,7 +346,7 @@ def find_node(name, match, item, ms, me):
     r = re.match(pats.getTag, match, re.DOTALL)
     tag = r.group(1) if r else name or '[\w-]+'
     # <tag/> has no content
-    if match.endswith('/>'):
+    if match.endswith('/>') or tag in (void or ()):
         return tag, ms, me, me, me
     # find closing tag
     ce = ee = me
@@ -382,6 +387,8 @@ class Node(object):
                  #'__vals',
                  )
 
+    void = HtmlVoidTags
+
     def __init__(self, tagstr, item=None, tagindex=None):
         self.ts = self.cs = self.ce = self.te = 0
         self.tagstr = tagstr
@@ -409,7 +416,8 @@ class Node(object):
         ms, me = (self.ts, self.cs) if tagindex is None else tagindex
         if item is None:
             item = self.item
-        self.__name, self.ts, self.cs, self.ce, self.te = find_node(tagname, self.tagstr, item, ms, me)
+        self.__name, self.ts, self.cs, self.ce, self.te = \
+            find_node(tagname, self.tagstr, item, ms, me, void=self.void)
         return self
 
     @property
