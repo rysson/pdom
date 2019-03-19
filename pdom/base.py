@@ -245,19 +245,19 @@ class ResultParam(object):
 
 def aWord(s):
     '''Realize [attribute~=value] selector'''
-    return'''[^'"]*?(?<=['" ]){}(?=['" ])[^'"]*?'''.format(s)
+    return r'''(?:[^'"]*?(?<=['" ]){}(?=['" ])[^'"]*?)|(?:\b{}\b)'''.format(s, s)
 
 def aWordStarts(s):
     '''Realize [attribute|=value] selector'''
-    return'''[^'"]*?(?<=['" ]){}[^'"]*?'''.format(s)
+    return '''[^'"]*?(?<=['" ]){}[^'"]*?'''.format(s)
 
 def aStarts(s):
     '''Realize [attribute^=value] selector'''
-    return'''(?<=['"]){}[^'"]*?'''.format(s)
+    return '''(?<=['"]){}[^'"]*?'''.format(s)
 
 def aEnds(s):
     '''Realize [attribute$=value] selector'''
-    return'''[^'"]*?{}(?=['"])'''.format(s)
+    return '''[^'"]*?{}(?=['"])'''.format(s)
 
 def aContains(s):
     '''Realize [attribute*=value] selector'''

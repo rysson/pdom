@@ -160,6 +160,28 @@ class TestDomSearch(TestCase):
         self.assertEqual(dom_search('<a x="1" y="2">A</a><a x="1" y="2">B</a>', 'a', {'x': '1', 'y': '2'}), ['A', 'B'])
         self.assertEqual(dom_search('<a x="1" y="2"><a>A</a></a>', 'a', {'x': '1', 'y': '2'}), ['<a>A</a>'])
 
+    def test_1_attrs_no_quote(self):
+        self.assertEqual(dom_search('<a>A</a>', 'a', {'x': '1'}), [])
+        self.assertEqual(dom_search('<a x=1>A</a>', 'a', {'x': '1'}), ['A'])
+        self.assertEqual(dom_search('<a x=2>A</a>', 'a', {'x': '1'}), [])
+        self.assertEqual(dom_search('<a y=1>A</a>', 'a', {'x': '1'}), [])
+        self.assertEqual(dom_search('<a>A</a><a x=1>B</a>', 'a', {'x': '1'}), ['B'])
+        self.assertEqual(dom_search('<a x=1>A</a><a>B</a>', 'a', {'x': '1'}), ['A'])
+        self.assertEqual(dom_search('<a x=1>A<a>B</a></a>', 'a', {'x': '1'}), ['A<a>B</a>'])
+
+    def test_2_attrs_no_quote(self):
+        self.assertEqual(dom_search('<a>A</a>', 'a', {'x': '1', 'y': '2'}), [])
+        self.assertEqual(dom_search('<a x=1>A</a>', 'a', {'x': '1', 'y': '2'}), [])
+        self.assertEqual(dom_search('<a y=2>A</a>', 'a', {'x': '1', 'y': '2'}), [])
+        self.assertEqual(dom_search('<a x=2 y=2>A</a>', 'a', {'x': '1', 'y': '2'}), [])
+        self.assertEqual(dom_search('<a x=1 y=3>A</a>', 'a', {'x': '1', 'y': '2'}), [])
+        self.assertEqual(dom_search('<a x=1 y=2>A</a>', 'a', {'x': '1', 'y': '2'}), ['A'])
+        self.assertEqual(dom_search('<a>A</a><a x=1 y=2>B</a>', 'a', {'x': '1', 'y': '2'}), ['B'])
+        self.assertEqual(dom_search('<a x=1>A</a><a x=1 y=2>B</a>', 'a', {'x': '1', 'y': '2'}), ['B'])
+        self.assertEqual(dom_search('<a y=2>A</a><a x=1 y=2>B</a>', 'a', {'x': '1', 'y': '2'}), ['B'])
+        self.assertEqual(dom_search('<a x=1 y=2>A</a><a x=1 y=2>B</a>', 'a', {'x': '1', 'y': '2'}), ['A', 'B'])
+        self.assertEqual(dom_search('<a x=1 y=2><a>A</a></a>', 'a', {'x': '1', 'y': '2'}), ['<a>A</a>'])
+
     def test_all_tags(self):
         with self.subTest('Any tag'):
             self.assertEqual(dom_search('<a>A</a><b>B</b><c>C</c>', None), ['A', 'B', 'C'])

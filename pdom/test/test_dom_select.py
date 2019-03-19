@@ -58,12 +58,26 @@ class TestDomSelect(TestCase):
         self.assertEqual(dom_select('<a class="1">A1</a><a class="1">A2</a>', '.1'), [NC('A1', '1'), NC('A2', '1')])
         self.assertEqual(dom_select('<a class="1">A</a><b class="1">B</b>', '.1'), [NC('A', '1'), NC('B', '1')])
 
+    def test_class_1_empty_no_quote(self):
+        self.assertEqual(dom_select('<a class=0>A</a>', '.1'), [])
+        self.assertEqual(dom_select('<a class=1>A</a>', '.1'), [NC('A', '1')])
+        self.assertEqual(dom_select('<a class=1>A1</a><a class=2>A2</a>', '.1'), [NC('A1', '1')])
+        self.assertEqual(dom_select('<a class=1>A1</a><a class=1>A2</a>', '.1'), [NC('A1', '1'), NC('A2', '1')])
+        self.assertEqual(dom_select('<a class=1>A</a><b class=1>B</b>', '.1'), [NC('A', '1'), NC('B', '1')])
+
     def test_class_1_tag(self):
         self.assertEqual(dom_select('<a class="0">A</a>', 'a.1'), [])
         self.assertEqual(dom_select('<a class="1">A</a>', 'a.1'), [NC('A', '1')])
         self.assertEqual(dom_select('<a class="1">A1</a><a class="2">A2</a>', 'a.1'), [NC('A1', '1')])
         self.assertEqual(dom_select('<a class="1">A1</a><a class="1">A2</a>', 'a.1'), [NC('A1', '1'), NC('A2', '1')])
         self.assertEqual(dom_select('<a class="1">A</a><b class="1">B</b>', 'a.1'), [NC('A', '1')])
+
+    def test_class_1_tag_no_quote(self):
+        self.assertEqual(dom_select('<a class=0>A</a>', 'a.1'), [])
+        self.assertEqual(dom_select('<a class=1>A</a>', 'a.1'), [NC('A', '1')])
+        self.assertEqual(dom_select('<a class=1>A1</a><a class=2>A2</a>', 'a.1'), [NC('A1', '1')])
+        self.assertEqual(dom_select('<a class=1>A1</a><a class=1>A2</a>', 'a.1'), [NC('A1', '1'), NC('A2', '1')])
+        self.assertEqual(dom_select('<a class=1>A</a><b class=1>B</b>', 'a.1'), [NC('A', '1')])
 
     def test_class_n_empty(self):
         self.assertEqual(dom_select('<a class="0 9">A</a>', '.1'), [])
