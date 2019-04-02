@@ -1,0 +1,67 @@
+
+// # --- DOM Selector Grammar ---
+// def space():       return R(r'\s+')   # must be a space
+// def sp():          return R(r'\s*')   # can be a space
+// SP = Optional(sp)
+// def ident():       return R(r'[\w-]+')
+// def val():         return [ ("'", R(r"[^']*"), "'"), ('"', R(r'[^"]*'), '"'), R(r'''[\w-]+''') ]
+// ZeroOrMoreValBr    = [("(", SP, val, ZeroOrMore(SP, ",", SP, val), SP, ")"), ("(", SP, ")")]
+// def tag():         return [ ident, "*" ]
+// def opt_tag():     return '?'
+// def id_sel():      return '#', ident
+// def class_sel():   return '.', ident
+// def attr_op():     return R('[$^~|*]?=|~')
+// def attr_sel():    return '[', ident, Optional(attr_op, val), ']'
+// def pseudo_sel():  return ':', ident, Optional(ZeroOrMoreValBr)
+// def pseudo_not():  return ':not', '(', simple_sel, ')'
+// def param_sel():   return [ id_sel, class_sel, attr_sel, pseudo_not, pseudo_sel ]
+// def res_attr():    return "(", SP, val, ZeroOrMore(SP, ",", SP, val), SP, ")"
+// def res_param():   return "::", ident, Optional(ZeroOrMoreValBr)
+// def simple_sel():  return [ (tag, Optional(opt_tag), ZeroOrMore(param_sel)), OneOrMore(param_sel) ]
+// def one_sel():     return simple_sel, Optional(res_attr), ZeroOrMore(res_param)
+// def oset_sel():    return "{", SP, sel_path, ZeroOrMore(SP, ",", SP, sel_path), SP, "}"
+// def set_sel():     return "{{", SP, sel_path, ZeroOrMore(SP, ",", SP, sel_path), SP, "}}"
+// def single_sel():  return [ one_sel, set_sel, oset_sel ]
+// def path_type():   return R('\s*[>+]\s*|\s+')
+// def sel_path():    return single_sel, ZeroOrMore(path_type, single_sel)
+// def selector():    return sel_path, ZeroOrMore(SP, ",", SP, sel_path), EOF
+
+space <- r'\s+';
+sp <- space?;
+ident <- r'\w[-\w]*';
+val <- ("'" r"[^']*" "'") / ('"' r'[^"]*' '"') / r'[\w-]+';
+zero_on_more_val_in_brackets <- '(' (sp val (sp ',' sp val)*)? sp ')';
+one_on_more_val_in_brackets <- '(' sp val (sp ',' sp val)* sp ')';
+
+tag <- ( ident / "*" );
+opt_tag <- '?';
+
+id_sel <- '#' ident;
+class_sel <- '.' ident;
+attr_sel <-  '[' ident (r'[$^~|*]?=|~' val)? ']';
+pseudo_not <- ':not(' sp simple_sel sp ')';
+pseudo_sel_noarg <- ('empty' / 'first-child' / 'last-child' / 'only-child' / 'first-of-type' /
+                     'last-of-type' / 'only-of-type' / 'enabled' / 'disabled');
+pseudo_sel_1arg  <- ('contains' / 'content-contains' / 'regex' / 'has') '(' sp val sp ')';
+pseudo_sel <- ':' ( pseudo_sel_noarg / pseudo_sel_1arg);
+param_sel <- (id_sel / class_sel / attr_sel / pseudo_not / pseudo_sel);
+
+simple_sel <- (tag opt_tag? param_sel? / param_sel) param_sel*;
+
+//res_attr <- '(' val (',' sp val)* ')';
+res_attr <- one_on_more_val_in_brackets;
+res_param_result <- ('content' / 'node' / 'text' / 'DomMatch' / 'none' / 'innerHTML' / 'outerHTML')
+                    ('(' sp ')')?;
+res_param_attrs <- 'attrs' one_on_more_val_in_brackets;
+res_param <- '::' ( res_param_result / res_param_attrs );
+
+one_sel <- simple_sel res_attr? res_param*;
+
+oset_sel <- '{' sp  sp '}';
+
+single_sel <- (one_sel / oset_sel);
+
+sel_path_item <- r'\s*[>+]\s*|\s+' single_sel;
+sel_path <- single_sel sel_path_item*;
+
+selector <- sp sel_path (sp ',' sp sel_path)* sp EOF;

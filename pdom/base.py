@@ -243,25 +243,35 @@ class ResultParam(object):
         self.source = source
 
 
+def aEqual(s):
+    '''Realize [attribute=value] selector'''
+    s = re.escape(s)
+    return r'''(?:(?<=['"]){0}(?=['"]))|(?:\b{0}\b)'''.format(s)
+
 def aWord(s):
     '''Realize [attribute~=value] selector'''
-    return r'''(?:[^'"]*?(?<=['" ]){}(?=['" ])[^'"]*?)|(?:\b{}\b)'''.format(s, s)
+    s = re.escape(s)
+    return r'''(?:[^'"]*?(?<=['" ]){0}(?=['" ])[^'"]*?)|(?:\b{0}\b)'''.format(s)
 
 def aWordStarts(s):
     '''Realize [attribute|=value] selector'''
-    return '''[^'"]*?(?<=['" ]){}[^'"]*?'''.format(s)
+    s = re.escape(s)
+    return r'''(?:[^'"]*?(?<=['" ]){0}[^'"]*?)|(?:\b{0}[-\w]*\b)'''.format(s)
 
 def aStarts(s):
     '''Realize [attribute^=value] selector'''
-    return '''(?<=['"]){}[^'"]*?'''.format(s)
+    s = re.escape(s)
+    return r'''(?:(?<=['"]){0}[^'"]*?)|(?:\b{0}[-\w]*\b)'''.format(s)
 
 def aEnds(s):
     '''Realize [attribute$=value] selector'''
-    return '''[^'"]*?{}(?=['"])'''.format(s)
+    s = re.escape(s)
+    return r'''(?:[^'"]*?{0}(?=['"]))|(?:\b[-\w]*{0}\b)'''.format(s)
 
 def aContains(s):
     '''Realize [attribute*=value] selector'''
-    return '''[^'"]*?{}[^'"]*?'''.format(s)
+    s = re.escape(s)
+    return r'''(?:(?<=['"])[^'"]*?{0}[^'"]*?(?=['"]))|(?:\b[-\w]*{0}[-\w]*\b)'''.format(s)
 
 
 def _tostr(s, source=ItemSource.Content):
@@ -520,11 +530,11 @@ s_attrSelectors = {
     None:  lambda v: True,
     '=':   lambda v: re.escape(v),
     '~':   lambda v: v,
-    '~=':  lambda v: aWord(re.escape(v)),
-    '|=':  lambda v: aWordStarts(re.escape(v)),
-    '^=':  lambda v: aStarts(re.escape(v)),
-    '$=':  lambda v: aEnds(re.escape(v)),
-    '*=':  lambda v: aContains(re.escape(v)),
+    '~=':  lambda v: aWord(v),
+    '|=':  lambda v: aWordStarts(v),
+    '^=':  lambda v: aStarts(v),
+    '$=':  lambda v: aEnds(v),
+    '*=':  lambda v: aContains(v),
 }
 
 #: Result param pseudo-element (::xxx)

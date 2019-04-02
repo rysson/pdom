@@ -314,3 +314,15 @@ if __name__ == '__main__':
         for row in dom_select('<a>A1</a><a disabled>A2</a><a disabled="disabled">A3</a>', 'a:disabled'):
             printres(row)
 
+    if 1:
+        for row in dom_select('''
+<div><x>
+  <p>Tytuł</p>
+  <p>Rok</p>
+  <a href="/gatunki">Gatunek</a>
+  <p>Opis</p>
+  <a href="/patrz">Oglądaj</a>
+</x></div>
+        ''', 'div x {p, p, a:2}'):
+            printres(row)
+
