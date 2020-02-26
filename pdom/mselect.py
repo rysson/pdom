@@ -10,7 +10,7 @@ from .base import pats
 from .msearch import dom_search
 
 from .selectorparser import parse as parse_selector
-from .selectorparser import Selector, SetSelector, OrderedSetSelector, GroupSelector
+from .selector import SelectorType, Selector, SetSelector, OrderedSetSelector, GroupSelector
 
 
 # -------  DOM Select -------
@@ -36,7 +36,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
         List of input HTML parts.
     selectors_desc : list of str
         List of descending selectors. Each item can be aternativr list.
-    sync : boll or Result.RemoveItem, default False
+    sync : bool or Result.RemoveItem, default False
         if not False run dp,search in sync mode (returns None if not match).
     """
     part, tree, out_stack = html, None, []
@@ -240,8 +240,31 @@ def dom_select(html, selectors):
     html = _make_html_list(html)
 
     # all selector from list
+    for sel in selectors:
+        if not isinstance(sel, SelectorType):
+            sel = parse_selector(sel)
+        # Go through set selector
+        res = []  # All matches for single selector
+        part = sel.select(res, html)
+        res = part
+
+        #if part is None or len(out_stack) > 1 or (out_stack and not tree_last):
+        #    if tree is None and part:
+        #        out_stack.append(part)
+        #    res += list(zip(*out_stack))
+        #else:
+        #    res += part
+
+        if ret is None:
+            ret = res
+        else:
+            ret.append(res)
+    return ret
+
+    # all selector from list
     for selgrp in selectors:
-        selgrp = parse_selector(selgrp)
+        if not isinstance(selgrp, SelectorType):
+            selgrp = parse_selector(selgrp)
         # Go through set selector
         res = []  # All matches for single selector
         _select_group(res, html, selgrp)
@@ -314,7 +337,7 @@ if __name__ == '__main__':
         for row in dom_select('<a>A1</a><a disabled>A2</a><a disabled="disabled">A3</a>', 'a:disabled'):
             printres(row)
 
-    if 1:
+    if 0:
         for row in dom_select('''
 <div><x>
   <p>Tytuł</p>

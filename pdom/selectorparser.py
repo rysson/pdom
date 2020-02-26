@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, unicode_literals, print_function
 
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 from functools import reduce
 from operator import xor
 import re
+import os.path
 
 from .base import aEqual, aWord, aWordStarts, aStarts, aEnds, aContains
 from .base import s_attrSelectors, s_resSelectors, pats, regex
 from .base import Node, DomMatch, Result, TagPosition, ItemSource, ResultParam
 from .msearch import dom_search
+from .selector import SelectorType, Selector, SelectorPath, SetSelector, OrderedSetSelector, GroupSelector
 
 
 #from arpeggio import Optional, ZeroOrMore, OneOrMore, EOF
@@ -91,65 +93,6 @@ def dump(tree, lvl=0, path=None):
         print(' = >>>\033[1;44m{}\033[0m<<<'.format(tree.value))
 
 
-#
-# TODO:  Remove __hash__ functions.
-#        Add custom names for part-hash (hash only for search, not whole object).
-#
-
-class Selector(object):
-    r"""Single selector (tag, attributes, psudo-elements etc.)."""
-    def __init__(self, tag=None, attrs=None, param=None, result=None, nth=None,
-                 path_type=None, optional=False):
-        self.tag = tag or ''
-        self.optional = optional
-        self.attrs = defaultdict(list, attrs or [])
-        self.result, self.nodefilterlist = [], []
-        self.param = [] if param is None else list(param)
-        self._hash = None
-        self.nth = nth
-        self.path_type = path_type
-    def __repr__(self):
-        return ('Selector(tag={tag!r}, attrs={attrs}, param={param}, result={result}, '
-                'elem_pos={elem_pos}, item_source={item_source}, optional={optional}, '
-                'nodefilter_len={nf_len})').format(nf_len=len(self.nodefilterlist), **vars(self))
-    def __hash__(self):
-        if self._hash is None:
-            self._hash = hash(self.tag) ^ hash(self.optional) ^ \
-                    hash(str(sorted(self.attrs.items()))) ^ \
-                    hash(str(self.result)) ^ hash(str(self.nodefilterlist)) ^ \
-                    hash(self.elem_pos) ^ hash(self.item_source)
-        return self._hash
-    @property
-    def path_type(self):
-        return {TagPosition.RootLevel: '>',
-                TagPosition.FirstOnly: '+',
-                TagPosition.Any:       ' ',
-                }.get(self.elem_pos, '')
-    @path_type.setter
-    def path_type(self, path_type):
-        path_type = (path_type or '').strip()
-        self.elem_pos = {'>': TagPosition.RootLevel,
-                         '+': TagPosition.FirstOnly, }.get(path_type, TagPosition.Any)
-        self.item_source = {'+': ItemSource.After, }.get(path_type, ItemSource.Content)
-
-class GroupSelector(list):
-    r"""Main group selector (A, B)."""
-    def __hash__(self):
-        return reduce(xor, map(hash, self))
-
-class SelectorPath(list):
-    r"""Selector path (A B, A > B)."""
-    def __hash__(self):
-        return reduce(xor, map(hash, self))
-
-class SetSelector(list):
-    r"""Set selector ( {A, B} )."""
-    def __hash__(self):
-        return reduce(xor, map(hash, self))
-
-class OrderedSetSelector(SetSelector):
-    r"""Ordered set selector ( {(A, B)} )."""
-
 
 def nodefilterFalse(n):
     r"""Force node to does NOT match."""
@@ -211,7 +154,7 @@ class RulesVisitor(PTNodeVisitor):
     visit_pseudo_sel_1arg = visit_pseudo_sel_args
 
     def visit_pseudo_sel(self, node, children):
-        print(f'PSEUDO_SEL: node={node!r}, children={children}')
+        #print(f'PSEUDO_SEL: node={node!r}, children={children}')
         cmd, args = children[0]
         try:
             fun = getattr(self, '_pseudo_' + cmd.replace('-', '_'))
@@ -225,7 +168,7 @@ class RulesVisitor(PTNodeVisitor):
     #    return children[0]
 
     def visit_simple_sel(self, node, children):
-        print(f'SIMPLE_SEL: node={node!r}, children={children}')
+        #print(f'SIMPLE_SEL: node={node!r}, children={children}')
         attrs = {}
         for k, v in (c for c in children if isinstance(c, NodeAttr)):
             attrs.setdefault(k, []).append(v)
@@ -237,16 +180,17 @@ class RulesVisitor(PTNodeVisitor):
         return sel
 
     def visit_res_param_result(self, node, children):
-        print(f'RES_PARAM_RESULT: node={node!r}, children={children}')
+        #print(f'RES_PARAM_RESULT: node={node!r}, children={children}')
         return AttrAppend('result', s_resSelectors[children[0]])
 
     def visit_res_param_attrs(self, node, children):
         return AttrExtend('result', children[0])
 
-    visit_res_attr = visit_res_param_attrs
+    def visit_res_attr(self, node, children):
+        return AttrExtend('result', children)
 
     def visit_one_sel(self, node, children):
-        print(f'ONE_SEL: node={node!r}, children={children}')
+        #print(f'ONE_SEL: node={node!r}, children={children}')
         sel = children[0]
         for item in filter_by_type(children, Attr):
             setattr(sel, item.attr, item.value)
@@ -255,23 +199,23 @@ class RulesVisitor(PTNodeVisitor):
         return sel
 
     def visit_single_sel(self, node, children):
-        print(f'SINGLE_SEL: node={node!r}, children={children}')
+        #print(f'SINGLE_SEL: node={node!r}, children={children}')
         sel = children[0]
         return sel
 
     def visit_sel_path_item(self, node, children):
-        print(f'SEL_PATH_ITEM: node={node!r}, children={children}')
+        #print(f'SEL_PATH_ITEM: node={node!r}, children={children}')
         assert len(children) == 2
         op, sel = children
         sel.path_type = op
         return sel
 
     def visit_sel_path(self, node, children):
-        print(f'SEL_PATH: node={node!r}, children={children}')
+        #print(f'SEL_PATH: node={node!r}, children={children}')
         return SelectorPath(children)
 
     def visit_selector(self, node, children):
-        print(f'SELECTOR: node={node!r}, children={children}')
+        #print(f'SELECTOR: node={node!r}, children={children}')
         return GroupSelector(children)
 
     def _pseudo_contains(self, value):
@@ -666,18 +610,28 @@ def parse(rules):
 #    return builder.out
 
 
-def set_debug_repr():
+def set_debug_repr(color=True):
     tag_pos = {TagPosition.Any: '', TagPosition.RootLevel: '>', TagPosition.FirstOnly: '(^)'}
     tag_src = {ItemSource.Content: '', ItemSource.After: '+'}
-    GroupSelector.__repr__ = lambda self: '\033[36mG\033[0m' + list.__repr__(self)
-    SelectorPath.__repr__ = lambda self: '\033[36mP\033[0m' + list.__repr__(self)
-    SetSelector.__repr__ = lambda self: '\033[36mA\033[0m' + list.__repr__(self)
-    #Selector.__repr__ = lambda self: '\033[36mS\033[0;2m(\033[0;4m{}{},{},F#{},{}\033[0;2m)\033[0m'.format(
-    Selector.__repr__ = lambda self: '\033[36ms\033[0m(\033[0;2m{ep}{es}{t}{o},{a},F#{nl},{r}\033[0m)\033[0m'.format(
-        t=self.tag, o=self.optional and '?' or '', a=dict(self.attrs),
-        nl=len(self.nodefilterlist), r=self.result,
-        ep=tag_pos.get(self.elem_pos, '?'), es=tag_src.get(self.item_source, '?')
-    )
+    clslist = (GroupSelector, SelectorPath, SetSelector, Selector)
+    if hasattr(Selector, '_orig_repr_') == bool(color):
+        return
+    if color:
+        for cls in clslist:
+            cls._orig_repr_ = cls.__repr__
+        GroupSelector.__repr__ = lambda self: '\033[36mG\033[0m' + list.__repr__(self)
+        SelectorPath.__repr__ = lambda self: '\033[36mP\033[0m' + list.__repr__(self)
+        SetSelector.__repr__ = lambda self: '\033[36mA\033[0m' + list.__repr__(self)
+        #Selector.__repr__ = lambda self: '\033[36mS\033[0;2m(\033[0;4m{}{},{},F#{},{}\033[0;2m)\033[0m'.format(
+        Selector.__repr__ = lambda self: '\033[36ms\033[0m(\033[0;2m{ep}{es}{t}{o},{a},F#{nl},{r}\033[0m)\033[0m'.format(
+            t=self.tag, o=self.optional and '?' or '', a=dict(self.attrs),
+            nl=len(self.nodefilterlist), r=self.result,
+            ep=tag_pos.get(self.elem_pos, '?'), es=tag_src.get(self.item_source, '?')
+        )
+    else:
+        for cls in clslist:
+            cls.__repr__ = cls._orig_repr_
+            del cls._orig_repr_
 
 
 if __name__ == '__main__':
@@ -690,6 +644,7 @@ if __name__ == '__main__':
     aparser = argparse.ArgumentParser()
     aparser.add_argument('selectors', metavar='SEL', nargs='+', help='selector to parse')
     aparser.add_argument('--debug', action='store_true', help='debug info')
+    aparser.add_argument('--color', action='store_true', help='show colorized selector')
     args = aparser.parse_args()
     #print(args)
 
@@ -701,7 +656,12 @@ if __name__ == '__main__':
     # parse("a[x~='3']:x()::attr(q)")
     for sel in args.selectors:
         print("- - - - -")
-        print(parse(sel))
+        SEL = parse(sel)
+        print(SEL)
+        if args.color:
+            set_debug_repr()
+            print(SEL)
+            set_debug_repr(False)
 
 
 

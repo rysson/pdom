@@ -103,7 +103,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     #   Copyright (C) 2018 Robert Kalinowski
     # Base idea is taken form parseDOM() by Tobias Ussing and Henrik Jensen.
 
-    #print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
+    print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
     #print('dom_search.HTML:', repr(html))  # XXX
     html = _make_html_list(html)
 

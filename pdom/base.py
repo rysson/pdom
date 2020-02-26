@@ -242,6 +242,9 @@ class ResultParam(object):
         self.position = position
         self.source = source
 
+    def __repr__(self):
+        return 'ResultParam({})'.format(vars(self))
+
 
 def aEqual(s):
     '''Realize [attribute=value] selector'''
