@@ -2,15 +2,12 @@
 from __future__ import absolute_import, division, unicode_literals, print_function
 
 import re
-from inspect import isclass
-
 from .base import PY2
 from .base import NoResult, Result, MissingAttr, TagPosition, ItemSource
-from .base import regex, pats, remove_tags_re
+from .base import pats, remove_tags_re
 from .base import _tostr, _make_html_list, find_node
 from .base import Node, DomMatch
 from .base import isrealsequence
-
 
 
 def find_closing(name, match, item, ms, me):
@@ -103,8 +100,8 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     #   Copyright (C) 2018 Robert Kalinowski
     # Base idea is taken form parseDOM() by Tobias Ussing and Henrik Jensen.
 
-    #print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
-    #print('dom_search.HTML:', repr(html))  # XXX
+    # print('dom_search: name="{name}", attrs={attrs}, ret={ret}'.format(**locals()))   # XXX DEBUG
+    # print('dom_search.HTML:', repr(html))  # XXX
     html = _make_html_list(html)
 
     if exclude_comments:
@@ -115,7 +112,8 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     if not name or name == '*':
         name = pats.anyTag   # any tag
 
-    class BreakAtrrLoop(Exception): pass
+    class BreakAtrrLoop(Exception):
+        pass
 
     # convert retrun item type to enum
     rtype2enum = {
@@ -125,8 +123,6 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         Node:     Result.Node,
         DomMatch: Result.DomMatch,
     }
-    #elif isclass(ritem) and issubclass(ritem, Node):
-    #    ritem = Result.Node
 
     ret_lst, ret_nodes = [], []
 
@@ -154,7 +150,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         skip_missing = skip_missing == MissingAttr.SkipAll
         sync_none = [None if sync is True else sync]
     else:
-        retlstadd, ret = ret_lst.extend, [ ret ]
+        retlstadd, ret = ret_lst.extend, [ret]
         skip_missing = skip_missing != MissingAttr.NoSkip
         sync_none = None if sync is True else sync
 
@@ -162,11 +158,11 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         if isrealsequence(item):
             kwargs = dict(name=name, attrs=attrs, ret=retarg, exclude_comments=exclude_comments)
             ret_lst += [dom_search(subitem, **kwargs) for subitem in item]
-            #ret_lst += [tuple(subret for subitem in item
-            #                  for subret in dom_search(subitem, **kwargs))]
+            # ret_lst += [tuple(subret for subitem in item
+            #                   for subret in dom_search(subitem, **kwargs))]
             continue
         if sync and item in (None, Result.RemoveItem):
-            #print('search - None')
+            # print('search - None')
             ret_lst += [item]
             continue
         item = _tostr(item, source=source)
@@ -179,16 +175,16 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         try:
             for key, vals in (attrs or {None: None}).items():
                 if not isinstance(vals, list):
-                    vals = [ vals ]
+                    vals = [vals]
                 elif not vals:   # empty values means any value
-                    vals = [ True ]
+                    vals = [True]
                 for val in vals:
                     vkey = key
-                    #print(f'-- key: {vkey!r}, val: "{val}"')
+                    # print(f'-- key: {vkey!r}, val: "{val}"')
                     if key and val is None:  # Skip this attribute
                         vkey = None
-                        #print(f'-> key: {vkey!r}, val: "{val}"')
-                    #print('TagPos', position, 'PAT', pats.melem(name, vkey, val))
+                        # print(f'-> key: {vkey!r}, val: "{val}"')
+                    # print('TagPos', position, 'PAT', pats.melem(name, vkey, val))
                     if position == TagPosition.RootLevel:
                         gen = find_root_tags(item, tag=name, attr=vkey, val=val)
                     elif position == TagPosition.FirstOnly:
@@ -197,9 +193,10 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                         gen = (Node(tagstr=r.group(), tagindex=r.span(), item=item)
                                for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL | re.IGNORECASE))
                     lst2 = [node for node in gen if nodefilter(node)]
-                    #lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, vkey, val), item, re.DOTALL | re.IGNORECASE))
-                    #print(' L2', lst2)
-                    #print(' L ', lst)
+                    # lst2 = list((r.group(), r.span()) for r in re.finditer(pats.melem(name, vkey, val),
+                    #                                                        item, re.DOTALL | re.IGNORECASE))
+                    # print(' L2', lst2)
+                    # print(' L ', lst)
                     if lst is None:   # First match
                         lst = lst2
                     else:             # Delete anything missing from the next list.
@@ -215,10 +212,11 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
             pass
         if not lst:
             continue
-        #print('LST', lst)
+        # print('LST', lst)
 
+        # print(f'MATCHED NODES [{ii+1}]')
         for node in lst:
-            #print('MATCH', match, matchIndex)
+            # print(f'MATCHED NODE {node!r}')
             lst2 = []
             if separate:
                 ret_nodes.append(node)
@@ -228,7 +226,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                         ritem = rtype2enum.get(ritem, ritem)
                 else:
                     ritem = rtype2enum.get(ritem, ritem)
-                #print('  -> ritem', ritem)
+                # print('  -> ritem', ritem)
                 if ritem == Result.Node:
                     # Get full node (content and all attributes)
                     lst2.append(node)
@@ -257,14 +255,13 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                 retlstadd(lst2)
 
     if separate:
-        ret_lst =  ret_lst, ret_nodes
-    #print('$$$', repr(ret_lst))  # XXX
+        ret_lst = ret_lst, ret_nodes
+    # print('$$$', repr(ret_lst))  # XXX
     return ret_lst
 
 
-
 def main():
-    from .base import ResultParam
+    # from .base import ResultParam
     from .base import aWord, aWordStarts, aStarts, aEnds, aContains
 
     def test_dom_search(html):

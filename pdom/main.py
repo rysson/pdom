@@ -78,7 +78,6 @@ class ExtArgumentParser(argparse.ArgumentParser):
 def main():
     print('=== Tests ===')
 
-    import sys
     import requests
     import pprint
     pprint = pprint.PrettyPrinter(indent=2).pprint
@@ -102,8 +101,8 @@ def main():
     aselparser.add_argument('selectors', metavar='SEL', nargs='+', help='selector to parse')
     aparser.set_subparser_alternative('CMDSEL', '--selector', '--selector-parse', '-S')
 
-    #cmdi = [x.title for x in aparser._action_groups].index('command')
-    #aparser._action_groups.insert(0, aparser._action_groups.pop(cmdi))
+    # cmdi = [x.title for x in aparser._action_groups].index('command')
+    # aparser._action_groups.insert(0, aparser._action_groups.pop(cmdi))
     args = aparser.parse_args()
 
     if args.debug:

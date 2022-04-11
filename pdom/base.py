@@ -3,24 +3,24 @@ from __future__ import absolute_import, division, unicode_literals, print_functi
 
 import sys
 import re
-from collections import defaultdict
 from collections import namedtuple
 try:
     from requests import Response
 except ImportError:
     Response = None
 
-PY2 = sys.version_info < (3,0)
+PY2 = sys.version_info < (3, 0)
 
 if PY2:
     from collections import Sequence
     type_str, type_bytes, base_str = unicode, str, basestring
-    class Enum: pass
+
+    class Enum:
+        pass
 else:
     from collections.abc import Sequence
     type_str, type_bytes, unicode, base_str = str, bytes, str, str
     from enum import Enum
-
 
 
 def isrealsequence(obj):
@@ -28,19 +28,22 @@ def isrealsequence(obj):
     return not isinstance(obj, (type_str, type_bytes, DomMatch)) and isinstance(obj, Sequence)
 
 
-
 class NoResult(list):
     __slots__ = ()
+
     def __init__(self):
         super(NoResult, self).__init__()
+
     def append(self, v):
         raise NotImplementedError('NoResult is readonly')
+
     def extend(self, v):
         raise NotImplementedError('NoResult is readonly')
+
     def __setitem__(self, key, val):
         raise NotImplementedError('NoResult is readonly')
-    # TODO: all methods
 
+    # TODO: all methods
 
 
 # TODO move to separate module
@@ -247,17 +250,21 @@ def aWord(s):
     '''Realize [attribute~=value] selector'''
     return r'''(?:[^'"]*?(?<=['" ]){}(?=['" ])[^'"]*?)|(?:\b{}\b)'''.format(s, s)
 
+
 def aWordStarts(s):
     '''Realize [attribute|=value] selector'''
     return '''[^'"]*?(?<=['" ]){}[^'"]*?'''.format(s)
+
 
 def aStarts(s):
     '''Realize [attribute^=value] selector'''
     return '''(?<=['"]){}[^'"]*?'''.format(s)
 
+
 def aEnds(s):
     '''Realize [attribute$=value] selector'''
     return '''[^'"]*?{}(?=['"])'''.format(s)
+
 
 def aContains(s):
     '''Realize [attribute*=value] selector'''
@@ -279,7 +286,7 @@ def _tostr(s, source=ItemSource.Content):
         s = ''
     elif isinstance(s, type_bytes):
         try:
-            s =  s.decode("utf-8")
+            s = s.decode("utf-8")
         except:
             pass
     elif not isinstance(s, base_str):
@@ -292,13 +299,13 @@ def _make_html_list(html):
     if Response and isinstance(html, Response):
         html = html.text
     if isinstance(html, DomMatch) or not isinstance(html, (list, tuple)):
-        html = [ html ]
+        html = [html]
     return html
 
 
 #: The List of HTML Void Elements (singletons)
-HtmlVoidTags = { 'area', 'base', 'br', 'col', 'command', 'embed', 'hr', 'img', 'input',
-                'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr', }
+HtmlVoidTags = {'area', 'base', 'br', 'col', 'command', 'embed', 'hr', 'img', 'input',
+                'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr'}
 
 
 def find_node(name, match, item, ms, me, void=HtmlVoidTags):
@@ -344,15 +351,15 @@ def find_node(name, match, item, ms, me, void=HtmlVoidTags):
     """
     # Recover tag name (important for "*")
     r = re.match(pats.getTag, match, re.DOTALL)
-    tag = r.group(1) if r else name or '[\w-]+'
+    tag = r.group(1) if r else name or r'[\w-]+'
     # <tag/> has no content
     if match.endswith('/>') or tag in (void or ()):
         return tag, ms, me, me, me
     # find closing tag
     ce = ee = me
-    tag_stack = [ tag ]
-    #for r in re.compile(pats.openCloseTag, re.DOTALL).finditer(item, me):
-    #for r in regs.openCloseTag.finditer(item, me):
+    tag_stack = [tag]
+    # for r in re.compile(pats.openCloseTag, re.DOTALL).finditer(item, me):
+    # for r in regs.openCloseTag.finditer(item, me):
     for r in openCloseTag_re.finditer(item, me):
         d = r.groupdict()
         if d['beg']:
@@ -364,7 +371,7 @@ def find_node(name, match, item, ms, me, void=HtmlVoidTags):
                     break
             if not tag_stack:
                 ce, ee = r.start(), r.end()
-                break;
+                break
     return tag, ms, me, ce, ee
 
 
@@ -383,8 +390,8 @@ class Node(object):
     __slots__ = ('ts', 'cs', 'ce', 'te',
                  'item', '__name', 'tagstr',
                  '__attrs',
-                 #'__content',
-                 #'__vals',
+                 # '__content',
+                 # '__vals',
                  )
 
     void = HtmlVoidTags
@@ -448,10 +455,10 @@ class Node(object):
     def attrs(self):
         r"""Returns parsed attributes."""
         if self.__attrs is None:
-            self.__attrs =  dict((attr.lower(), a or b or c) \
-                                 for attr, a, b, c in \
-                                 re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats),
-                                            self.tagstr, re.DOTALL))
+            self.__attrs = dict((attr.lower(), a or b or c)
+                                for attr, a, b, c in
+                                re.findall(r'\s+{askAttrName}{askAttrVal}'.format(**pats),
+                                           self.tagstr, re.DOTALL))
         return self.__attrs
 
     @property
@@ -498,7 +505,7 @@ class Node(object):
         return self.content
 
     def __repr__(self):
-        #return '\033[36mNode({name!r}, {attrs}, {content!r})\033[0m'.format(
+        # return '\033[36mNode({name!r}, {attrs}, {content!r})\033[0m'.format(
         return 'Node({name!r}, {attrs}, {content!r})'.format(
             name=self.name, attrs=self.attrs, content=self.content)
 
@@ -510,7 +517,6 @@ class Node(object):
         if self.te:
             self.ce += off
             self.te += off
-
 
 
 # -------  DOM Select -------
@@ -537,4 +543,3 @@ s_resSelectors = {
     'innerHTML': Result.InnerHTML,
     'outerHTML': Result.OuterHTML,
 }
-
