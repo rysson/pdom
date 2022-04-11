@@ -131,6 +131,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
     try:
         separate = ret.separate
         sync = ret.sync
+        flat = ret.flat
         skip_missing = ret.missing
         nodefilter = ret.nodefilter or (lambda n: True)
         position = ret.position
@@ -138,6 +139,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         ret = ret.args  # get requested ret
     except AttributeError:
         separate = sync = False
+        flat = True
         skip_missing = MissingAttr.SkipIfDirect
         nodefilter = lambda n: True
         position = TagPosition.Any
@@ -153,6 +155,7 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
         retlstadd, ret = ret_lst.extend, [ret]
         skip_missing = skip_missing != MissingAttr.NoSkip
         sync_none = None if sync is True else sync
+        flat = False
 
     for ii, item in enumerate(html):
         if isrealsequence(item):
@@ -252,6 +255,8 @@ def dom_search(html, name=None, attrs=None, ret=None, exclude_comments=False):
                         if not skip_missing:
                             lst2.append(None)
             if lst2 or not skip_missing:
+                if flat and len(lst2) == 1:
+                    lst2 = lst2[0]
                 retlstadd(lst2)
 
     if separate:

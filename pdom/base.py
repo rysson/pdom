@@ -224,8 +224,11 @@ class ResultParam(object):
     missing
         How to handle missing attributes, see MissingAttr.
     sync : bool or Result.RemoveItem
-        If True result caontains None (or Result.RemoveItem) if not match
+        If True result contains None (or Result.RemoveItem) if not match
         If False result contains only matching items.
+    sync : bool
+        True for results in flat list.
+        False for results in nested list (old behavior).
     nodefilter : callable or None
         Filter found nodes: nodefilter(node) -> bool.
         If filter function returns False node will be skipped.
@@ -234,6 +237,7 @@ class ResultParam(object):
                  separate=False,
                  missing=MissingAttr.SkipIfDirect,
                  sync=False,
+                 flat=True,
                  nodefilter=None,
                  position=TagPosition.Any,
                  source=ItemSource.Content):
@@ -241,6 +245,7 @@ class ResultParam(object):
         self.separate = separate
         self.missing = missing
         self.sync = sync
+        self.flat = flat
         self.nodefilter = nodefilter
         self.position = position
         self.source = source

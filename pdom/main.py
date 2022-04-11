@@ -89,10 +89,14 @@ def main():
     aparser.set_default_subparser('CMDURL')
 
     aurlparser = asubparsers.add_parser('CMDURL', help='(default) test selector on URL')
+    aurlparser.add_argument('--flat', action='store_true', default=True, help='flat result')
+    aurlparser.add_argument('--no-flat', '-F', action='store_false', dest='flat', help='nestet result')
     aurlparser.add_argument('url', metavar='URL', nargs=1, help='URL or file')
     aurlparser.add_argument('selectors', metavar='SEL', nargs='+', help='selector to parse')
 
     ahtmlparser = asubparsers.add_parser('CMDHTML', help='(-H) Use direct HTML instead of URL')
+    ahtmlparser.add_argument('--flat', action='store_true', default=True, help='flat result')
+    ahtmlparser.add_argument('--no-flat', '-F', action='store_false', dest='flat', help='nestet result')
     ahtmlparser.add_argument('html', metavar='HTML', nargs=1, help='Direct HTML instead of URL')
     ahtmlparser.add_argument('selectors', metavar='SEL', nargs='+', help='selector to parse')
     aparser.set_subparser_alternative('CMDHTML', '--html', '-H')
@@ -117,7 +121,7 @@ def main():
     elif args.op == 'CMDHTML':
         html = args.html[0]
         for sel in args.selectors:
-            pprint(dom_select(html, sel))
+            pprint(dom_select(html, sel, flat=args.flat))
     else:
         url = args.url[0]
         if url.startswith('file://'):
@@ -129,9 +133,9 @@ def main():
         else:
             with open(url) as f:
                 page = f.read()
-        #print(page[:200])
+        # print(page[:200])
         for sel in args.selectors:
-            pprint(dom_select(page, sel))
+            pprint(dom_select(page, sel, flat=args.flat))
 
 
 if __name__ == '__main__':

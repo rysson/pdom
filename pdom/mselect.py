@@ -24,8 +24,11 @@ class SetSelPartData:
         else:
             self.res = list(res)
 
+    def __repr__(self):
+        return 'Part({nth}, {res!r})'.format(nth=self.nth, res=self.res)
 
-def _select_desc(res, html, selectors_desc, sync=False):
+
+def _select_desc(res, html, selectors_desc, sync=False, flat=True):
     r"""
     Select descending tags "A B". Supports aternatives "{A, B}".
 
@@ -49,7 +52,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
             # subgroup of set nodes: " { A, B, ...} "
             subhtml = list(part if tree is None else tree)
             subpart = [part] if tree else []
-            # Ordered group: "{ SE: [, SEL]... }"
+            # Ordered group: "{ SEL [, SEL]... }"
             if isinstance(single_selector, OrderedSetSelector):
                 used = {}
                 for sel in single_selector:
@@ -59,9 +62,9 @@ def _select_desc(res, html, selectors_desc, sync=False):
                         res2 = used[selhash]
                         res2.nth += 1  # auto nth
                     else:
-                        #res2 = []
-                        #_select_desc(res2, subhtml, sel, sync=True)
-                        res2 = [_select_desc([], sub2html, sel, sync=True) for sub2html in subhtml]
+                        # res2 = []
+                        # _select_desc(res2, subhtml, sel, sync=True, flat=flat)
+                        res2 = [_select_desc([], sub2html, sel, sync=True, flat=flat) for sub2html in subhtml]
                         res2 = SetSelPartData(zip(*res2))  # nth, res2
                         # print('mix!!! SH', subhtml)
                         # print('mix!!! SR', res2)
@@ -86,9 +89,9 @@ def _select_desc(res, html, selectors_desc, sync=False):
                 for sel in single_selector:
                     # print('SEL-SET', sel)
                     res2 = []
-                    _select_desc(res2, subhtml, sel, sync=True)
-                    #print('mix!!! sh', subhtml)
-                    #print('mix!!! sr', res2)
+                    _select_desc(res2, subhtml, sel, sync=True, flat=flat)
+                    # print('mix!!! sh', subhtml)
+                    # print('mix!!! sr', res2)
                     if not res2:
                         return []
                     subpart.append(res2)
@@ -96,8 +99,14 @@ def _select_desc(res, html, selectors_desc, sync=False):
             # print('Mix!!! P', part)
             # print('MIX!!! S', subpart)
             # append columns as rows
-            part = list(p for p in zip(*subpart) if Result.RemoveItem not in p)
-            #print('MIX!!! P', part)
+            if flat:
+                # flat: all values in {...} are in flat list for each occurrence
+                part = [[v for s in p for v in (s if type(s) is list else (s,))]
+                        for p in zip(*subpart) if Result.RemoveItem not in p]
+
+            else:
+                part = [p for p in zip(*subpart) if Result.RemoveItem not in p]
+            # print('MIX!!! P', part)
             continue
         # single node selector
         # print('--- SINGLE', single_selector)
@@ -113,7 +122,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
             #       f' sync={rsync}, separate=True)')
             part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(sel.attrs),
                                     ret=ResultParam(sel.result, missing=MissingAttr.NoSkip,
-                                                    separate=True, sync=rsync, nodefilter=nodefilter,
+                                                    separate=True, sync=rsync, flat=flat, nodefilter=nodefilter,
                                                     position=sel.elem_pos, source=sel.item_source))
             if not tree:
                 # print('PART', part, 'RETURN.')
@@ -133,7 +142,7 @@ def _select_desc(res, html, selectors_desc, sync=False):
         else:
             # print(f'dom_search({part if tree is None else tree!r}, tag={tag!r}, attrs={dict(sel.attrs)}, sync={rsync})')
             part, tree = dom_search(part if tree is None else tree, tag, attrs=dict(sel.attrs),
-                                    ret=ResultParam(Result.Node, sync=rsync, nodefilter=nodefilter,
+                                    ret=ResultParam(Result.Node, sync=rsync, flat=flat, nodefilter=nodefilter,
                                                     position=sel.elem_pos, source=sel.item_source)), None
             if not part:
                 # print('PART', part, 'RETURN!')
@@ -156,15 +165,15 @@ def _select_desc(res, html, selectors_desc, sync=False):
     return res
 
 
-def _select_group(res, html, group_selector):
+def _select_group(res, html, group_selector, flat=True):
     # Go through set selector
     assert isinstance(group_selector, GroupSelector)
     for sel in group_selector:
-        #print('SEL-SET', sel)
-        _select_desc(res, html, sel)
+        # print('SEL-SET', sel)
+        _select_desc(res, html, sel, flat=flat)
 
 
-def dom_select(html, selectors):
+def dom_select(html, selectors, flat=None):
     r"""
     Find data in HTML by CSS / jQuery simplified selector.
 
@@ -233,7 +242,9 @@ def dom_select(html, selectors):
     # TODO   - A + B
     # TODO   - fist, last, nth, etc.
     #
-    #print(' --- search for "{}"'.format(selectors))
+    # print(' --- search for "{}"'.format(selectors))
+    if flat is None:
+        flat = dom_select.flat
     ret = []
     if isinstance(selectors, base_str):
         ret = None
@@ -246,14 +257,17 @@ def dom_select(html, selectors):
         selgrp = parse_selector(selgrp)
         # Go through set selector
         res = []  # All matches for single selector
-        _select_group(res, html, selgrp)
-        #print('RES', res)
-        if ret == None:
+        _select_group(res, html, selgrp, flat=flat)
+        # print('RES', res)
+        if ret is None:
             ret = res
         else:
             ret.append(res)
     return ret
 
+
+# Default behavior.
+dom_select.flat = True
 
 
 if __name__ == '__main__':
