@@ -9,6 +9,8 @@ __pycache__
 
 # virtualenv
 /.env/
+/.venv/
+/.venv*/
 
 # ViM temp files
 .*.sw?
