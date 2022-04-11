@@ -33,7 +33,7 @@ python3 -m dom  http://wizja.tv 'a[href*=watch](href) img(src)'
 ```python
 url = 'http://wizja.tv'
 with requests.Session() as sess:
-    for (link,), (logo,) in dom.select(sess.get(url), 'a[href*=watch](href) img(src)'):
+    for link, logo in dom.select(sess.get(url), 'a[href*=watch](href) img(src)'):
         print('url={link!r}, logo={logo!r}.format(link=link, logo=logo))
 ```
 

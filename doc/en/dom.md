@@ -184,7 +184,7 @@ Selector     | Description
 ##### Parent node with set and optional
 
 ```python
-for (a,), b, c in dom_select(html, 'a::node {b, c?}'):
+for a, b, c in dom_select(html, 'a::node {b, c?}'):
     print('Result:', a.text b.text, c and c.text)
 # Result: A1B1C1 B1 C1
 # Result: A2B2 B2 None
@@ -196,4 +196,13 @@ Extra brackets are used, because all pseudo elements are returned as sublist (ev
 First line match A and its content B and C.
 Second line matched next A in the same way but we've got None instead missing C.
 
+
+Old behavior (`flat=False`) generates extra lists.
+
+```python
+for (a,), b, c in dom_select(html, 'a::node {b, c?}', flat=False):
+    print('Result:', a.text b.text, c and c.text)
+# Result: A1B1C1 B1 C1
+# Result: A2B2 B2 None
+```
 

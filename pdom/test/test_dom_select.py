@@ -10,6 +10,9 @@ from ..base import aWord, aWordStarts, aStarts, aEnds, aContains
 from ..base import Node, DomMatch   # for test only
 
 
+dom_select.flat = False
+
+
 class N(Node):
     __slots__ = Node.__slots__ + ('content', )
     def __init__(self, content, attrs=None, tag=None, **kwargs):
@@ -131,6 +134,18 @@ class TestDomSelect(TestCase):
         self.assertEqual(dom_select('<a x-y="1">A</a>', 'a')[0].attrs, {'x-y': '1'})
         self.assertEqual(dom_select('<a x="1" x-y="2">A</a>', 'a')[0].attrs, {'x': '1', 'x-y': '2'})
         self.assertEqual(dom_select('<a x="1" y="2" x-y="3">A</a>', 'a')[0].attrs, {'x': '1', 'y': '2', 'x-y': '3'})
+
+    def test_node_attrs_flat(self):
+        try:
+            flat, dom_select.flat = dom_select.flat, True
+            self.assertEqual(dom_select('<a>A</a>', 'a')[0].attrs, {})
+            self.assertEqual(dom_select('<a x="1">A</a>', 'a')[0].attrs, {'x': '1'})
+            self.assertEqual(dom_select('<a x="1" y="2">A</a>', 'a')[0].attrs, {'x': '1', 'y': '2'})
+            self.assertEqual(dom_select('<a x-y="1">A</a>', 'a')[0].attrs, {'x-y': '1'})
+            self.assertEqual(dom_select('<a x="1" x-y="2">A</a>', 'a')[0].attrs, {'x': '1', 'x-y': '2'})
+            self.assertEqual(dom_select('<a x="1" y="2" x-y="3">A</a>', 'a')[0].attrs, {'x': '1', 'y': '2', 'x-y': '3'})
+        finally:
+            dom_select.flat = flat
 
     def test_node_attr(self):
         self.assertRaises(AttributeError, getattr, dom_select('<a>A</a>', 'a')[0].attr, 'x')

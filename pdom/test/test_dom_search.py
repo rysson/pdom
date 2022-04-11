@@ -613,15 +613,28 @@ class TestDomSearch_ResultParam(TestCase):
 
     def test_missing_attr(self):
         self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam('x', missing=MissingAttr.NoSkip, flat=False)), ['1', None])
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam(['x'], missing=MissingAttr.NoSkip, flat=False)), [['1'], [None]])
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam('x', missing=MissingAttr.SkipIfDirect, flat=False)), ['1'])
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam(['x'], missing=MissingAttr.SkipIfDirect, flat=False)), [['1'], [None]])
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam('x', missing=MissingAttr.SkipAll, flat=False)), ['1'])
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
+                                    ret=ResultParam(['x'], missing=MissingAttr.SkipAll, flat=False)), [['1']])
+
+    def test_missing_attr_flat(self):
+        self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
                                     ret=ResultParam('x', missing=MissingAttr.NoSkip)), ['1', None])
         self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
-                                    ret=ResultParam(['x'], missing=MissingAttr.NoSkip)), [['1'], [None]])
+                                    ret=ResultParam(['x'], missing=MissingAttr.NoSkip)), ['1', None])
         self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
                                     ret=ResultParam('x', missing=MissingAttr.SkipIfDirect)), ['1'])
         self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
-                                    ret=ResultParam(['x'], missing=MissingAttr.SkipIfDirect)), [['1'], [None]])
+                                    ret=ResultParam(['x'], missing=MissingAttr.SkipIfDirect)), ['1', None])
         self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
                                     ret=ResultParam('x', missing=MissingAttr.SkipAll)), ['1'])
         self.assertEqual(dom_search('<a x="1">A</a><a>A</a>', 'a',
-                                    ret=ResultParam(['x'], missing=MissingAttr.SkipAll)), [['1']])
-
+                                    ret=ResultParam(['x'], missing=MissingAttr.SkipAll)), ['1'])

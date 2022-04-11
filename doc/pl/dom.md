@@ -245,17 +245,21 @@ Selektor     | Opis
 
 Jeśli żaden z pseudo-element wyniku nie jest użyty, to zwracany jest Node.
 Jeśli jest użyty choć jeden zwracana jest lista z żądanymi rzeczami.
+Jak jest pojedynczy element to zwracany jest wprost (domyślny `flat`)
+albo też jako lista (przy wymuszeniu `no-flat`).
 
 1. `A` → `Node(A)`
 
-2. `A::node` → `[Node(A)]`
+2. `A::node` → `Node(A)`
 
 3. `A(x,y)::content` → `[x, y, 'A']`
 
-4. `A(x)` → `[x]`
+4. `A(x)` → `x`
+
+5. `A(x)` → `[x]`  (`no-flat`)
 
 
-To dlatego gdy pobierany jest jeden atrybut potrzeba dodatkowego wyłuskiwania. 
+Przy starym zachowaniu (`no-flat`) gdy pobierany jest jeden atrybut potrzeba dodatkowego wyłuskiwania. 
 Poniżej porównanie przypadków 1 i 4 i wypisania atrybutu *x*.
 
 ```python
@@ -264,7 +268,11 @@ for a in pdom.select(html, 'a'):
     print(a.x)
 
 # 4.
-for (x,) in pdom.select(html, 'a(x)'):
+for x in pdom.select(html, 'a(x)'):
+    print(x)
+
+# 5. (no-flat)
+for (x,) in pdom.select(html, 'a(x)', flat=False):
     print(x)
 ```
 
@@ -274,7 +282,7 @@ for (x,) in pdom.select(html, 'a(x)'):
 ##### Węzeł rodzica z dwoma potomkami (zestaw) z czego jeden opcjonalny
 
 ```python
-for (a,), b, c in dom_select(html, 'a::node {b, c?}'):
+for a, b, c in dom_select(html, 'a::node {b, c?}'):
     print('Result:', a.text b.text, c and c.text)
 # Result: A1B1C1 B1 C1
 # Result: A2B2 B2 None
@@ -287,4 +295,13 @@ Dodatkowe nawiasy wokół *a* są z powodu listy, co zostało wyjaśnione wyżej
 Pierwsza linia trafiła w pierwsze `a` oraz potomków `b` i `c`.
 Druga linia też trafiła (w drugie `a`) tylko zwróciła `b` i None (bo nie ma tam `c`).
 
+
+Stare zachowanie gdy (`flat=False`) generuje dodatkowe zagłębienia:
+
+```python
+for (a,), b, c in dom_select(html, 'a::node {b, c?}', flat=False):
+    print('Result:', a.text b.text, c and c.text)
+# Result: A1B1C1 B1 C1
+# Result: A2B2 B2 None
+```
 
